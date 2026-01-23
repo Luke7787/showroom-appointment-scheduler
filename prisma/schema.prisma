@@ -12,3 +12,14 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model Appointment {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  email     String
+  phone     String?
+  startTime DateTime
+  endTime   DateTime
+  createdAt DateTime @default(now())
+}
