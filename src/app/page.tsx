@@ -1,10 +1,10 @@
-import { SignIn, SignedIn, SignedOut } from "@clerk/nextjs";
+import { RedirectToSignIn, SignedIn, SignedOut } from "@clerk/nextjs";
 
 export default function HomePage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
       <SignedOut>
-        <SignIn />
+        <RedirectToSignIn />
       </SignedOut>
 
       <SignedIn>
