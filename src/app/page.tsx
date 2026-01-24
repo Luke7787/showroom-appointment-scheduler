@@ -20,9 +20,17 @@ export default function HomePage() {
               Showroom Appointment Scheduler
             </h1>
 
-            <div className="user-button-scale">
+            <span
+              style={{
+                transform: "scale(1.8)",
+                transformOrigin: "center",
+                display: "flex",
+                alignItems: "center",
+                height: "100%",
+              }}
+            >
               <UserButton afterSignOutUrl="/" />
-            </div>
+            </span>
           </nav>
 
           {/* PAGE CONTENT */}
