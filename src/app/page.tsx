@@ -3,6 +3,21 @@
 import { SignedIn, SignedOut, UserButton, SignInButton } from "@clerk/nextjs";
 import { useMemo, useState } from "react";
 
+const TIME_ZONE = "America/Los_Angeles";
+
+function todayLA() {
+  // Returns YYYY-MM-DD in America/Los_Angeles
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 function formatTime(totalMinutes: number) {
   const hour24 = Math.floor(totalMinutes / 60);
   const minute = totalMinutes % 60;
@@ -15,14 +30,11 @@ function formatTime(totalMinutes: number) {
 }
 
 function generateTimeRanges() {
-  // 9:00 AM to 5:00 PM in 30-min intervals
-  // Last slot: 4:30 PM – 5:00 PM
   const ranges: string[] = [];
 
   for (let minutes = 9 * 60; minutes < 17 * 60; minutes += 30) {
     const start = minutes;
     const end = minutes + 30;
-
     ranges.push(`${formatTime(start)} – ${formatTime(end)}`);
   }
 
@@ -30,6 +42,7 @@ function generateTimeRanges() {
 }
 
 export default function HomePage() {
+  const minDate = useMemo(() => todayLA(), []);
   const [date, setDate] = useState(""); // YYYY-MM-DD
 
   const timeRanges = useMemo(() => {
@@ -72,6 +85,7 @@ export default function HomePage() {
             <input
               type="date"
               value={date}
+              min={minDate}
               onChange={(e) => setDate(e.target.value)}
               className="rounded-lg border px-5 py-3 text-lg bg-white shadow-sm"
             />
