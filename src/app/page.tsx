@@ -4,18 +4,50 @@ import { SignedIn, SignedOut, UserButton, SignInButton } from "@clerk/nextjs";
 import { useMemo, useState } from "react";
 
 const TIME_ZONE = "America/Los_Angeles";
+const SLOT_MINUTES = 30;
+const BUSINESS_START_HOUR = 9;
+const BUSINESS_END_HOUR = 17;
 
-function todayLA() {
-  // Returns YYYY-MM-DD in America/Los_Angeles
-  const parts = new Intl.DateTimeFormat("en-CA", {
+type Slot = {
+  startMinutes: number; // minutes from midnight
+  endMinutes: number;
+  label: string; // "9:00 AM – 9:30 AM"
+};
+
+function getZonedParts(date: Date) {
+  // Returns date parts in TIME_ZONE (LA)
+  const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(new Date());
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
 
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}`;
+
+  return {
+    year: get("year"),
+    month: get("month"),
+    day: get("day"),
+    hour: Number(get("hour")),
+    minute: Number(get("minute")),
+  };
+}
+
+function todayLA() {
+  // YYYY-MM-DD in LA
+  const now = new Date();
+  const p = getZonedParts(now);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+function nowMinutesLA() {
+  const now = new Date();
+  const p = getZonedParts(now);
+  return p.hour * 60 + p.minute;
 }
 
 function formatTime(totalMinutes: number) {
@@ -29,26 +61,49 @@ function formatTime(totalMinutes: number) {
   return `${hour12}:${mm} ${ampm}`;
 }
 
-function generateTimeRanges() {
-  const ranges: string[] = [];
+function generateSlots(): Slot[] {
+  const slots: Slot[] = [];
+  const start = BUSINESS_START_HOUR * 60;
+  const end = BUSINESS_END_HOUR * 60;
 
-  for (let minutes = 9 * 60; minutes < 17 * 60; minutes += 30) {
-    const start = minutes;
-    const end = minutes + 30;
-    ranges.push(`${formatTime(start)} – ${formatTime(end)}`);
+  for (let t = start; t < end; t += SLOT_MINUTES) {
+    const startMinutes = t;
+    const endMinutes = t + SLOT_MINUTES;
+
+    slots.push({
+      startMinutes,
+      endMinutes,
+      label: `${formatTime(startMinutes)} – ${formatTime(endMinutes)}`,
+    });
   }
 
-  return ranges;
+  return slots;
 }
 
 export default function HomePage() {
   const minDate = useMemo(() => todayLA(), []);
   const [date, setDate] = useState(""); // YYYY-MM-DD
 
-  const timeRanges = useMemo(() => {
+  // Precompute daily slots once (they don't depend on date yet)
+  const allSlots = useMemo(() => generateSlots(), []);
+
+  // Decide which ones are "unavailable" if the chosen date is today (LA)
+  const slotsWithAvailability = useMemo(() => {
     if (!date) return [];
-    return generateTimeRanges();
-  }, [date]);
+
+    const isToday = date === minDate;
+    if (!isToday) {
+      return allSlots.map((s) => ({ ...s, unavailable: false }));
+    }
+
+    const nowMins = nowMinutesLA();
+
+    // Mark as unavailable if the slot has already ended
+    return allSlots.map((s) => ({
+      ...s,
+      unavailable: s.endMinutes <= nowMins,
+    }));
+  }, [date, minDate, allSlots]);
 
   return (
     <main className="min-h-screen bg-sky-100 text-slate-800">
@@ -97,12 +152,20 @@ export default function HomePage() {
                 </h3>
 
                 <ul className="grid grid-cols-2 gap-2">
-                  {timeRanges.map((range) => (
+                  {slotsWithAvailability.map((s) => (
                     <li
-                      key={range}
-                      className="rounded-md border bg-white px-3 py-2 text-sm"
+                      key={s.startMinutes}
+                      className={[
+                        "rounded-md border px-3 py-2 text-sm",
+                        s.unavailable
+                          ? "bg-red-50 text-red-700 border-red-200"
+                          : "bg-white text-slate-800 border-slate-200",
+                      ].join(" ")}
                     >
-                      {range}
+                      {s.label}
+                      {s.unavailable && (
+                        <span className="ml-2 text-xs">(Unavailable)</span>
+                      )}
                     </li>
                   ))}
                 </ul>
