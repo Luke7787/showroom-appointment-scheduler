@@ -1,7 +1,8 @@
 "use client";
 
 import { SignedIn, SignedOut, UserButton, SignInButton } from "@clerk/nextjs";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import toast from "react-hot-toast";
 
 const TIME_ZONE = "America/Los_Angeles";
 const SLOT_MINUTES = 30;
@@ -14,8 +15,9 @@ type Slot = {
   label: string; // "9:00 AM – 9:30 AM"
 };
 
+type SlotWithAvailability = Slot & { unavailable: boolean };
+
 function getZonedParts(date: Date) {
-  // Returns date parts in TIME_ZONE (LA)
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: TIME_ZONE,
     year: "numeric",
@@ -38,15 +40,12 @@ function getZonedParts(date: Date) {
 }
 
 function todayLA() {
-  // YYYY-MM-DD in LA
-  const now = new Date();
-  const p = getZonedParts(now);
-  return `${p.year}-${p.month}-${p.day}`;
+  const p = getZonedParts(new Date());
+  return `${p.year}-${p.month}-${p.day}`; // YYYY-MM-DD
 }
 
 function nowMinutesLA() {
-  const now = new Date();
-  const p = getZonedParts(now);
+  const p = getZonedParts(new Date());
   return p.hour * 60 + p.minute;
 }
 
@@ -67,13 +66,10 @@ function generateSlots(): Slot[] {
   const end = BUSINESS_END_HOUR * 60;
 
   for (let t = start; t < end; t += SLOT_MINUTES) {
-    const startMinutes = t;
-    const endMinutes = t + SLOT_MINUTES;
-
     slots.push({
-      startMinutes,
-      endMinutes,
-      label: `${formatTime(startMinutes)} – ${formatTime(endMinutes)}`,
+      startMinutes: t,
+      endMinutes: t + SLOT_MINUTES,
+      label: `${formatTime(t)} – ${formatTime(t + SLOT_MINUTES)}`,
     });
   }
 
@@ -83,12 +79,11 @@ function generateSlots(): Slot[] {
 export default function HomePage() {
   const minDate = useMemo(() => todayLA(), []);
   const [date, setDate] = useState(""); // YYYY-MM-DD
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Precompute daily slots once (they don't depend on date yet)
   const allSlots = useMemo(() => generateSlots(), []);
 
-  // Decide which ones are "unavailable" if the chosen date is today (LA)
-  const slotsWithAvailability = useMemo(() => {
+  const slotsWithAvailability: SlotWithAvailability[] = useMemo(() => {
     if (!date) return [];
 
     const isToday = date === minDate;
@@ -98,12 +93,20 @@ export default function HomePage() {
 
     const nowMins = nowMinutesLA();
 
-    // Mark as unavailable if the slot has already ended
     return allSlots.map((s) => ({
       ...s,
       unavailable: s.endMinutes <= nowMins,
     }));
   }, [date, minDate, allSlots]);
+
+  function handleSlotClick(slot: SlotWithAvailability) {
+    if (slot.unavailable) {
+      toast.error("No booking in the past");
+      return;
+    }
+
+    toast.success(`Selected: ${slot.label}`);
+  }
 
   return (
     <main className="min-h-screen bg-sky-100 text-slate-800">
@@ -133,15 +136,26 @@ export default function HomePage() {
             </div>
           </nav>
 
-          {/* MAIN CONTENT */}
           <div className="p-6 max-w-2xl">
             <h2 className="text-lg font-semibold mb-2">Pick a date</h2>
 
             <input
+              ref={dateInputRef}
               type="date"
               value={date}
               min={minDate}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+
+                if (value && value < minDate) {
+                  toast.error("No booking in the past");
+                  setDate("");
+                  dateInputRef.current?.blur(); // close picker
+                  return;
+                }
+
+                setDate(value);
+              }}
               className="rounded-lg border px-5 py-3 text-lg bg-white shadow-sm"
             />
 
@@ -153,19 +167,22 @@ export default function HomePage() {
 
                 <ul className="grid grid-cols-2 gap-2">
                   {slotsWithAvailability.map((s) => (
-                    <li
-                      key={s.startMinutes}
-                      className={[
-                        "rounded-md border px-3 py-2 text-sm",
-                        s.unavailable
-                          ? "bg-red-50 text-red-700 border-red-200"
-                          : "bg-white text-slate-800 border-slate-200",
-                      ].join(" ")}
-                    >
-                      {s.label}
-                      {s.unavailable && (
-                        <span className="ml-2 text-xs">(Unavailable)</span>
-                      )}
+                    <li key={s.startMinutes}>
+                      <button
+                        type="button"
+                        onClick={() => handleSlotClick(s)}
+                        className={[
+                          "w-full rounded-md border px-3 py-2 text-sm text-left transition",
+                          s.unavailable
+                            ? "bg-red-50 text-red-700 border-red-200"
+                            : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50",
+                        ].join(" ")}
+                      >
+                        {s.label}
+                        {s.unavailable && (
+                          <span className="ml-2 text-xs">(Unavailable)</span>
+                        )}
+                      </button>
                     </li>
                   ))}
                 </ul>
