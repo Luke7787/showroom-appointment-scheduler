@@ -3,30 +3,38 @@
 import { SignedIn, SignedOut, UserButton, SignInButton } from "@clerk/nextjs";
 import { useMemo, useState } from "react";
 
-function generateTimeLabels() {
-  // 9:00 to 5:00 in 30-min increments (last start time shown: 4:30 PM)
-  const labels: string[] = [];
+function formatTime(totalMinutes: number) {
+  const hour24 = Math.floor(totalMinutes / 60);
+  const minute = totalMinutes % 60;
+
+  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+  const ampm = hour24 < 12 ? "AM" : "PM";
+  const mm = minute.toString().padStart(2, "0");
+
+  return `${hour12}:${mm} ${ampm}`;
+}
+
+function generateTimeRanges() {
+  // 9:00 AM to 5:00 PM in 30-min intervals
+  // Last slot: 4:30 PM – 5:00 PM
+  const ranges: string[] = [];
 
   for (let minutes = 9 * 60; minutes < 17 * 60; minutes += 30) {
-    const hour24 = Math.floor(minutes / 60);
-    const minute = minutes % 60;
+    const start = minutes;
+    const end = minutes + 30;
 
-    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
-    const ampm = hour24 < 12 ? "AM" : "PM";
-    const mm = minute.toString().padStart(2, "0");
-
-    labels.push(`${hour12}:${mm} ${ampm}`);
+    ranges.push(`${formatTime(start)} – ${formatTime(end)}`);
   }
 
-  return labels;
+  return ranges;
 }
 
 export default function HomePage() {
   const [date, setDate] = useState(""); // YYYY-MM-DD
 
-  const timeLabels = useMemo(() => {
+  const timeRanges = useMemo(() => {
     if (!date) return [];
-    return generateTimeLabels();
+    return generateTimeRanges();
   }, [date]);
 
   return (
@@ -71,16 +79,16 @@ export default function HomePage() {
             {date && (
               <div className="mt-6">
                 <h3 className="font-semibold mb-2">
-                  Times (9:00 AM – 5:00 PM)
+                  Time slots (30 minutes each)
                 </h3>
 
                 <ul className="grid grid-cols-2 gap-2">
-                  {timeLabels.map((t) => (
+                  {timeRanges.map((range) => (
                     <li
-                      key={t}
+                      key={range}
                       className="rounded-md border bg-white px-3 py-2 text-sm"
                     >
-                      {t}
+                      {range}
                     </li>
                   ))}
                 </ul>
