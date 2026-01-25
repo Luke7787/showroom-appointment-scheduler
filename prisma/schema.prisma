@@ -12,14 +12,21 @@ datasource db {
   provider = "postgresql"
 }
 
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELED
+}
+
 model Appointment {
-  id        String   @id @default(cuid())
+  id        String            @id @default(cuid())
   userId    String
   name      String
   email     String
   phone     String?
   startTime DateTime
   endTime   DateTime
-  createdAt DateTime @default(now())
+  status    AppointmentStatus @default(PENDING)
+  createdAt DateTime          @default(now())
 }
 

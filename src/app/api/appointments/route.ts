@@ -139,7 +139,7 @@ export async function POST(req: Request) {
     if (err) return NextResponse.json({ error: err }, { status: 400 });
   }
 
-  // Optional: prevent duplicate startTimes in request
+  // Prevent duplicate startTimes in request
   const starts = parsedSlots.map((s) => s.startUtc.getTime());
   const uniqueStarts = new Set(starts);
   if (uniqueStarts.size !== starts.length) {
@@ -166,7 +166,7 @@ export async function POST(req: Request) {
         }
       }
 
-      // Create each appointment (small N, fine to loop)
+      // Create each appointment (default is PENDING, but we set explicitly)
       const results = [];
       for (const { startUtc, endUtc } of parsedSlots) {
         const appt = await tx.appointment.create({
@@ -177,6 +177,7 @@ export async function POST(req: Request) {
             phone: phone?.trim() ? phone.trim() : null,
             startTime: startUtc,
             endTime: endUtc,
+            status: "PENDING",
           },
         });
         results.push(appt);
