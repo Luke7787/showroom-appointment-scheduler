@@ -10,12 +10,14 @@ const BUSINESS_START_HOUR = 9;
 const BUSINESS_END_HOUR = 17;
 
 type Slot = {
-  startMinutes: number; // minutes from midnight
+  startMinutes: number;
   endMinutes: number;
-  label: string; // "9:00 AM – 9:30 AM"
+  label: string;
 };
 
 type SlotWithAvailability = Slot & { unavailable: boolean };
+
+// ----- Time helpers -----
 
 function getZonedParts(date: Date) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -76,23 +78,71 @@ function generateSlots(): Slot[] {
   return slots;
 }
 
+/**
+ * Convert a LA "wall clock" date+time into a real UTC Date without extra libs.
+ * We do a small correction loop to account for DST offsets.
+ */
+function laDateTimeToUtcDate(dateStr: string, minutesFromMidnight: number) {
+  const [yStr, mStr, dStr] = dateStr.split("-");
+  const year = Number(yStr);
+  const month = Number(mStr);
+  const day = Number(dStr);
+
+  const hour = Math.floor(minutesFromMidnight / 60);
+  const minute = minutesFromMidnight % 60;
+
+  // Start with a UTC guess
+  let utcMs = Date.UTC(year, month - 1, day, hour, minute, 0);
+
+  for (let i = 0; i < 2; i += 1) {
+    const guess = new Date(utcMs);
+
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(guess);
+
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "0";
+
+    const gy = Number(get("year"));
+    const gm = Number(get("month"));
+    const gd = Number(get("day"));
+    const gh = Number(get("hour"));
+    const gmin = Number(get("minute"));
+
+    // Difference between what we WANT in LA vs what our UTC guess shows in LA
+    const desired = Date.UTC(year, month - 1, day, hour, minute);
+    const got = Date.UTC(gy, gm - 1, gd, gh, gmin);
+
+    const diffMinutes = (got - desired) / 60000;
+    utcMs -= diffMinutes * 60000;
+  }
+
+  return new Date(utcMs);
+}
+
 export default function HomePage() {
   const minDate = useMemo(() => todayLA(), []);
-  const [date, setDate] = useState(""); // YYYY-MM-DD
+  const [date, setDate] = useState("");
   const dateInputRef = useRef<HTMLInputElement | null>(null);
 
-  // multi-select chosen slots (keyed by startMinutes)
+  // multi-select
   const [selectedStarts, setSelectedStarts] = useState<Set<number>>(
     () => new Set(),
   );
 
-  // show/hide booking form (frontend only)
+  // form modal
   const [showForm, setShowForm] = useState(false);
-
-  // form fields (frontend only)
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const allSlots = useMemo(() => generateSlots(), []);
 
@@ -100,12 +150,9 @@ export default function HomePage() {
     if (!date) return [];
 
     const isToday = date === minDate;
-    if (!isToday) {
-      return allSlots.map((s) => ({ ...s, unavailable: false }));
-    }
+    if (!isToday) return allSlots.map((s) => ({ ...s, unavailable: false }));
 
     const nowMins = nowMinutesLA();
-
     return allSlots.map((s) => ({
       ...s,
       unavailable: s.endMinutes <= nowMins,
@@ -122,25 +169,19 @@ export default function HomePage() {
 
     setSelectedStarts((prev) => {
       const next = new Set(prev);
-      if (next.has(slot.startMinutes)) {
-        next.delete(slot.startMinutes);
-      } else {
-        next.add(slot.startMinutes);
-      }
+      if (next.has(slot.startMinutes)) next.delete(slot.startMinutes);
+      else next.add(slot.startMinutes);
       return next;
     });
   }
 
-  function openForm() {
-    setShowForm(true);
-  }
-
-  function closeForm() {
-    setShowForm(false);
-  }
-
-  function submitFrontendOnly(e: React.FormEvent) {
+  async function submitToBackend(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!date) {
+      toast.error("Pick a date first");
+      return;
+    }
 
     if (selectedStarts.size === 0) {
       toast.error("Select at least one time slot");
@@ -152,15 +193,50 @@ export default function HomePage() {
       return;
     }
 
-    // Frontend only: just show a success toast for now
-    toast.success("Details captured (frontend only)");
+    const sortedStarts = Array.from(selectedStarts).sort((a, b) => a - b);
 
-    // Optional: clear selections + form
-    setSelectedStarts(new Set());
-    setName("");
-    setEmail("");
-    setPhone("");
-    setShowForm(false);
+    // Build slots payload (ISO UTC)
+    const slots = sortedStarts.map((startMinutes) => {
+      const startUtc = laDateTimeToUtcDate(date, startMinutes);
+      const endUtc = laDateTimeToUtcDate(date, startMinutes + SLOT_MINUTES);
+
+      return {
+        startTime: startUtc.toISOString(),
+        endTime: endUtc.toISOString(),
+      };
+    });
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim() ? phone.trim() : undefined,
+          slots,
+        }),
+      });
+
+      const data = (await res.json()) as { error?: string };
+
+      if (!res.ok) {
+        toast.error(data?.error ?? "Booking failed");
+        return;
+      }
+
+      toast.success("Appointments created!");
+      setSelectedStarts(new Set());
+      setName("");
+      setEmail("");
+      setPhone("");
+      setShowForm(false);
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -202,7 +278,6 @@ export default function HomePage() {
               onChange={(e) => {
                 const value = e.target.value;
 
-                // If user clears the input, just clear state
                 if (!value) {
                   setDate("");
                   setSelectedStarts(new Set());
@@ -210,7 +285,6 @@ export default function HomePage() {
                   return;
                 }
 
-                // Block past dates
                 if (value < minDate) {
                   toast.error("No booking in the past");
                   setDate("");
@@ -220,9 +294,8 @@ export default function HomePage() {
                   return;
                 }
 
-                // Valid date selected
                 setDate(value);
-                setSelectedStarts(new Set()); // reset selections when changing date
+                setSelectedStarts(new Set());
                 setShowForm(false);
                 dateInputRef.current?.blur();
               }}
@@ -276,12 +349,11 @@ export default function HomePage() {
                   })}
                 </ul>
 
-                {/* Show proceed button once at least one slot is selected */}
                 {selectedCount > 0 && !showForm && (
                   <div className="mt-4">
                     <button
                       type="button"
-                      onClick={openForm}
+                      onClick={() => setShowForm(true)}
                       className="w-full rounded-md bg-slate-900 text-white py-3 font-semibold hover:bg-slate-800 transition"
                     >
                       Continue ({selectedCount} selected)
@@ -292,12 +364,11 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Simple modal form (frontend only) */}
           {showForm && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div
                 className="absolute inset-0 bg-black/40"
-                onClick={closeForm}
+                onClick={() => setShowForm(false)}
               />
 
               <div className="relative w-full max-w-md rounded-xl bg-white shadow-xl border p-5">
@@ -311,7 +382,7 @@ export default function HomePage() {
 
                   <button
                     type="button"
-                    onClick={closeForm}
+                    onClick={() => setShowForm(false)}
                     className="rounded-md px-2 py-1 text-slate-600 hover:bg-slate-100"
                     aria-label="Close"
                   >
@@ -319,7 +390,7 @@ export default function HomePage() {
                   </button>
                 </div>
 
-                <form onSubmit={submitFrontendOnly} className="mt-4 space-y-3">
+                <form onSubmit={submitToBackend} className="mt-4 space-y-3">
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       Name <span className="text-red-600">*</span>
@@ -330,6 +401,7 @@ export default function HomePage() {
                       className="w-full rounded-md border px-3 py-2"
                       placeholder="Jane Doe"
                       autoFocus
+                      disabled={isSubmitting}
                     />
                   </div>
 
@@ -343,6 +415,7 @@ export default function HomePage() {
                       className="w-full rounded-md border px-3 py-2"
                       placeholder="jane@example.com"
                       inputMode="email"
+                      disabled={isSubmitting}
                     />
                   </div>
 
@@ -356,20 +429,28 @@ export default function HomePage() {
                       className="w-full rounded-md border px-3 py-2"
                       placeholder="(555) 123-4567"
                       inputMode="tel"
+                      disabled={isSubmitting}
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full rounded-md bg-blue-600 text-white py-3 font-semibold hover:bg-blue-700 transition"
+                    disabled={isSubmitting}
+                    className={[
+                      "w-full rounded-md py-3 font-semibold transition",
+                      isSubmitting
+                        ? "bg-blue-300 text-white cursor-not-allowed"
+                        : "bg-blue-600 text-white hover:bg-blue-700",
+                    ].join(" ")}
                   >
-                    Submit
+                    {isSubmitting ? "Submitting..." : "Submit"}
                   </button>
 
                   <button
                     type="button"
-                    onClick={closeForm}
-                    className="w-full rounded-md border py-3 font-semibold hover:bg-slate-50 transition"
+                    onClick={() => setShowForm(false)}
+                    disabled={isSubmitting}
+                    className="w-full rounded-md border py-3 font-semibold hover:bg-slate-50 transition disabled:opacity-60"
                   >
                     Cancel
                   </button>

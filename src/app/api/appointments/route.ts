@@ -8,20 +8,23 @@ import {
   TIME_ZONE,
 } from "@/lib/scheduling";
 
-// Body the client should send
-type CreateAppointmentBody = {
+type SlotInput = {
   startTime: string; // ISO
   endTime: string; // ISO
+};
+
+type CreateAppointmentsBody = {
   name: string;
   email: string;
   phone?: string;
+  slots: SlotInput[];
 };
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// Convert a UTC Date into LA "wall clock" parts using Intl (no dependencies)
+// Convert a UTC Date into LA "wall clock" parts using Intl
 function getZonedParts(dateUtc: Date) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: TIME_ZONE,
@@ -63,17 +66,14 @@ function validateSlot(startUtc: Date, endUtc: Date) {
   const start = getZonedParts(startUtc);
   const end = getZonedParts(endUtc);
 
-  // Must start on :00 or :30 (if SLOT_MINUTES is 30)
   if (start.minute % SLOT_MINUTES !== 0) {
     return `Slot must start on a ${SLOT_MINUTES}-minute boundary`;
   }
 
-  // Start must be >= 09:00
   const startOk =
     start.hour > BUSINESS_START_HOUR ||
     (start.hour === BUSINESS_START_HOUR && start.minute >= 0);
 
-  // End must be <= 17:00
   const endOk =
     end.hour < BUSINESS_END_HOUR ||
     (end.hour === BUSINESS_END_HOUR && end.minute <= 0);
@@ -82,7 +82,6 @@ function validateSlot(startUtc: Date, endUtc: Date) {
     return `Slot must be within business hours ${BUSINESS_START_HOUR}:00–${BUSINESS_END_HOUR}:00 (${TIME_ZONE})`;
   }
 
-  // Also ensure start and end are on the same LA calendar date
   const sameLocalDay =
     start.year === end.year &&
     start.month === end.month &&
@@ -96,24 +95,23 @@ function validateSlot(startUtc: Date, endUtc: Date) {
 }
 
 export async function POST(req: Request) {
-  // ✅ Clerk auth (App Router)
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: CreateAppointmentBody;
+  let body: CreateAppointmentsBody;
   try {
-    body = (await req.json()) as CreateAppointmentBody;
+    body = (await req.json()) as CreateAppointmentsBody;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { startTime, endTime, name, email, phone } = body;
+  const { name, email, phone, slots } = body;
 
-  if (!startTime || !endTime || !name || !email) {
+  if (!name?.trim() || !email?.trim()) {
     return NextResponse.json(
-      { error: "Missing required fields" },
+      { error: "Name and email are required" },
       { status: 400 },
     );
   }
@@ -122,47 +120,76 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid email" }, { status: 400 });
   }
 
-  const startUtc = new Date(startTime);
-  const endUtc = new Date(endTime);
+  if (!Array.isArray(slots) || slots.length === 0) {
+    return NextResponse.json(
+      { error: "At least one slot is required" },
+      { status: 400 },
+    );
+  }
 
-  const slotError = validateSlot(startUtc, endUtc);
-  if (slotError) {
-    return NextResponse.json({ error: slotError }, { status: 400 });
+  // Parse + validate each slot
+  const parsedSlots = slots.map((s) => {
+    const startUtc = new Date(s.startTime);
+    const endUtc = new Date(s.endTime);
+    return { startUtc, endUtc };
+  });
+
+  for (const { startUtc, endUtc } of parsedSlots) {
+    const err = validateSlot(startUtc, endUtc);
+    if (err) return NextResponse.json({ error: err }, { status: 400 });
+  }
+
+  // Optional: prevent duplicate startTimes in request
+  const starts = parsedSlots.map((s) => s.startUtc.getTime());
+  const uniqueStarts = new Set(starts);
+  if (uniqueStarts.size !== starts.length) {
+    return NextResponse.json(
+      { error: "Duplicate slots selected" },
+      { status: 400 },
+    );
   }
 
   try {
     const created = await prisma.$transaction(async (tx) => {
-      // overlap: existing.start < new.end AND existing.end > new.start
-      const overlapping = await tx.appointment.findFirst({
-        where: {
-          startTime: { lt: endUtc },
-          endTime: { gt: startUtc },
-        },
-        select: { id: true },
-      });
+      // Check overlaps for each slot inside the transaction
+      for (const { startUtc, endUtc } of parsedSlots) {
+        const overlapping = await tx.appointment.findFirst({
+          where: {
+            startTime: { lt: endUtc },
+            endTime: { gt: startUtc },
+          },
+          select: { id: true },
+        });
 
-      if (overlapping) {
-        // Abort tx by throwing
-        throw new Error("SLOT_TAKEN");
+        if (overlapping) {
+          throw new Error("SLOT_TAKEN");
+        }
       }
 
-      return tx.appointment.create({
-        data: {
-          userId,
-          name,
-          email,
-          phone: phone?.trim() ? phone.trim() : null,
-          startTime: startUtc,
-          endTime: endUtc,
-        },
-      });
+      // Create each appointment (small N, fine to loop)
+      const results = [];
+      for (const { startUtc, endUtc } of parsedSlots) {
+        const appt = await tx.appointment.create({
+          data: {
+            userId,
+            name: name.trim(),
+            email: email.trim(),
+            phone: phone?.trim() ? phone.trim() : null,
+            startTime: startUtc,
+            endTime: endUtc,
+          },
+        });
+        results.push(appt);
+      }
+
+      return results;
     });
 
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json({ appointments: created }, { status: 201 });
   } catch (e: unknown) {
     if (e instanceof Error && e.message === "SLOT_TAKEN") {
       return NextResponse.json(
-        { error: "Slot already booked" },
+        { error: "One or more selected slots are already booked" },
         { status: 409 },
       );
     }
