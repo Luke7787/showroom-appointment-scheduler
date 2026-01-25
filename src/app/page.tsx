@@ -1,37 +1,32 @@
 "use client";
 
 import { SignedIn, SignedOut, UserButton, SignInButton } from "@clerk/nextjs";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
-type Slot = { startTime: string; endTime: string };
+function generateTimeLabels() {
+  // 9:00 to 5:00 in 30-min increments (last start time shown: 4:30 PM)
+  const labels: string[] = [];
+
+  for (let minutes = 9 * 60; minutes < 17 * 60; minutes += 30) {
+    const hour24 = Math.floor(minutes / 60);
+    const minute = minutes % 60;
+
+    const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+    const ampm = hour24 < 12 ? "AM" : "PM";
+    const mm = minute.toString().padStart(2, "0");
+
+    labels.push(`${hour12}:${mm} ${ampm}`);
+  }
+
+  return labels;
+}
 
 export default function HomePage() {
   const [date, setDate] = useState(""); // YYYY-MM-DD
-  const [slots, setSlots] = useState<Slot[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!date) return;
-
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(`/api/slots?date=${date}`);
-        const data = await res.json();
-
-        // adjust this line depending on your API shape
-        setSlots(data.slots ?? data ?? []);
-      } catch {
-        setError("Failed to load slots.");
-        setSlots([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
+  const timeLabels = useMemo(() => {
+    if (!date) return [];
+    return generateTimeLabels();
   }, [date]);
 
   return (
@@ -70,33 +65,27 @@ export default function HomePage() {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="rounded-md border px-3 py-2 bg-white"
+              className="rounded-lg border px-5 py-3 text-lg bg-white shadow-sm"
             />
 
-            <div className="mt-6">
-              <h3 className="font-semibold mb-2">Available slots</h3>
+            {date && (
+              <div className="mt-6">
+                <h3 className="font-semibold mb-2">
+                  Times (9:00 AM – 5:00 PM)
+                </h3>
 
-              {loading && <p>Loading…</p>}
-              {error && <p className="text-red-600">{error}</p>}
-              {!loading && !error && date && slots.length === 0 && (
-                <p>No slots available for this date.</p>
-              )}
-
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                {slots.map((s) => (
-                  <button
-                    key={s.startTime}
-                    className="rounded-md border bg-white px-3 py-2 text-left hover:bg-slate-50"
-                    onClick={() => console.log("selected slot", s)}
-                  >
-                    {new Date(s.startTime).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </button>
-                ))}
+                <ul className="grid grid-cols-2 gap-2">
+                  {timeLabels.map((t) => (
+                    <li
+                      key={t}
+                      className="rounded-md border bg-white px-3 py-2 text-sm"
+                    >
+                      {t}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
+            )}
           </div>
         </>
       </SignedIn>
