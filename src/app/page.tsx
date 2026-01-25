@@ -147,14 +147,23 @@ export default function HomePage() {
               onChange={(e) => {
                 const value = e.target.value;
 
-                if (value && value < minDate) {
+                // If user clears the input, just clear state
+                if (!value) {
+                  setDate("");
+                  return;
+                }
+
+                // Block past dates
+                if (value < minDate) {
                   toast.error("No booking in the past");
                   setDate("");
                   dateInputRef.current?.blur(); // close picker
                   return;
                 }
 
+                // ✅ Valid date selected
                 setDate(value);
+                dateInputRef.current?.blur(); // ✅ close picker after selection
               }}
               className="rounded-lg border px-5 py-3 text-lg bg-white shadow-sm"
             />
