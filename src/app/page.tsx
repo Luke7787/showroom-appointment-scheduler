@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 const TIME_ZONE = "America/Los_Angeles";
-const SLOT_MINUTES = 30;
 
 type ApiSlotStatus = "AVAILABLE" | "PENDING" | "CONFIRMED" | "PAST";
 
