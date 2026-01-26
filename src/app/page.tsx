@@ -276,16 +276,20 @@ export default function HomePage() {
 
                       const cls =
                         s.status === "PAST"
-                          ? "bg-red-50 text-red-700 border-red-200 cursor-not-allowed"
+                          ? "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
                           : s.status === "PENDING"
                             ? "bg-amber-50 text-amber-800 border-amber-200 cursor-not-allowed"
                             : s.status === "CONFIRMED"
-                              ? "bg-slate-100 text-slate-600 border-slate-200 cursor-not-allowed"
+                              ? // ✅ GREEN for approved/confirmed
+                                "bg-green-50 text-green-800 border-green-200 cursor-not-allowed"
                               : isSelected
                                 ? "bg-blue-600 text-white border-blue-700 hover:bg-blue-700"
                                 : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50";
 
-                      const disabled = s.status !== "AVAILABLE";
+                      // ✅ allow PAST to be clickable so toggleSlot() can toast,
+                      // but still prevent PENDING/CONFIRMED from clicking/selecting.
+                      const disabled =
+                        s.status === "PENDING" || s.status === "CONFIRMED";
 
                       return (
                         <li key={s.start}>
@@ -304,7 +308,7 @@ export default function HomePage() {
                               <span className="ml-2 text-xs">(Pending)</span>
                             )}
                             {s.status === "CONFIRMED" && (
-                              <span className="ml-2 text-xs">(Confirmed)</span>
+                              <span className="ml-2 text-xs">(Approved)</span>
                             )}
                             {s.status === "AVAILABLE" && isSelected && (
                               <span className="ml-2 text-xs opacity-90">

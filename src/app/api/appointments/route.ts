@@ -58,7 +58,7 @@ function validateSlot(startUtc: Date, endUtc: Date) {
   }
 
   // No past times (compare absolute time in UTC)
-  if (startUtc.getTime() <= Date.now()) {
+  if (endUtc.getTime() <= Date.now()) {
     return "Cannot book a time in the past";
   }
 

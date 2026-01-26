@@ -135,7 +135,9 @@ export async function GET(req: Request) {
     const slotStartUtc = laLocalToUtcDate(parsed, t);
     const slotEndUtc = laLocalToUtcDate(parsed, t + SLOT_MINUTES);
 
-    // past slots (only relevant for today)
+    // ✅ Past slots (only relevant for today)
+    // Fix: treat as past if it has ALREADY STARTED (strictly before now)
+    // This prevents booking 11:00–11:30 at 11:01.
     if (isToday && slotEndUtc <= now) {
       slots.push({
         start: slotStartUtc.toISOString(),
