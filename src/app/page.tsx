@@ -1,21 +1,20 @@
 "use client";
 
 import { SignedIn, SignedOut, UserButton, SignInButton } from "@clerk/nextjs";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 const TIME_ZONE = "America/Los_Angeles";
 const SLOT_MINUTES = 30;
-const BUSINESS_START_HOUR = 9;
-const BUSINESS_END_HOUR = 17;
 
-type Slot = {
-  startMinutes: number;
-  endMinutes: number;
-  label: string;
+type ApiSlotStatus = "AVAILABLE" | "PENDING" | "CONFIRMED" | "PAST";
+
+type ApiSlot = {
+  start: string; // ISO UTC
+  end: string; // ISO UTC
+  label: string; // formatted in LA by backend
+  status: ApiSlotStatus;
 };
-
-type SlotWithAvailability = Slot & { unavailable: boolean };
 
 // ----- Time helpers -----
 
@@ -36,8 +35,6 @@ function getZonedParts(date: Date) {
     year: get("year"),
     month: get("month"),
     day: get("day"),
-    hour: Number(get("hour")),
-    minute: Number(get("minute")),
   };
 }
 
@@ -46,93 +43,17 @@ function todayLA() {
   return `${p.year}-${p.month}-${p.day}`; // YYYY-MM-DD
 }
 
-function nowMinutesLA() {
-  const p = getZonedParts(new Date());
-  return p.hour * 60 + p.minute;
-}
-
-function formatTime(totalMinutes: number) {
-  const hour24 = Math.floor(totalMinutes / 60);
-  const minute = totalMinutes % 60;
-
-  const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
-  const ampm = hour24 < 12 ? "AM" : "PM";
-  const mm = minute.toString().padStart(2, "0");
-
-  return `${hour12}:${mm} ${ampm}`;
-}
-
-function generateSlots(): Slot[] {
-  const slots: Slot[] = [];
-  const start = BUSINESS_START_HOUR * 60;
-  const end = BUSINESS_END_HOUR * 60;
-
-  for (let t = start; t < end; t += SLOT_MINUTES) {
-    slots.push({
-      startMinutes: t,
-      endMinutes: t + SLOT_MINUTES,
-      label: `${formatTime(t)} – ${formatTime(t + SLOT_MINUTES)}`,
-    });
-  }
-
-  return slots;
-}
-
-/**
- * Convert a LA "wall clock" date+time into a real UTC Date without extra libs.
- * We do a small correction loop to account for DST offsets.
- */
-function laDateTimeToUtcDate(dateStr: string, minutesFromMidnight: number) {
-  const [yStr, mStr, dStr] = dateStr.split("-");
-  const year = Number(yStr);
-  const month = Number(mStr);
-  const day = Number(dStr);
-
-  const hour = Math.floor(minutesFromMidnight / 60);
-  const minute = minutesFromMidnight % 60;
-
-  // Start with a UTC guess
-  let utcMs = Date.UTC(year, month - 1, day, hour, minute, 0);
-
-  for (let i = 0; i < 2; i += 1) {
-    const guess = new Date(utcMs);
-
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: TIME_ZONE,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).formatToParts(guess);
-
-    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "0";
-
-    const gy = Number(get("year"));
-    const gm = Number(get("month"));
-    const gd = Number(get("day"));
-    const gh = Number(get("hour"));
-    const gmin = Number(get("minute"));
-
-    // Difference between what we WANT in LA vs what our UTC guess shows in LA
-    const desired = Date.UTC(year, month - 1, day, hour, minute);
-    const got = Date.UTC(gy, gm - 1, gd, gh, gmin);
-
-    const diffMinutes = (got - desired) / 60000;
-    utcMs -= diffMinutes * 60000;
-  }
-
-  return new Date(utcMs);
-}
-
 export default function HomePage() {
   const minDate = useMemo(() => todayLA(), []);
   const [date, setDate] = useState("");
   const dateInputRef = useRef<HTMLInputElement | null>(null);
 
-  // multi-select
-  const [selectedStarts, setSelectedStarts] = useState<Set<number>>(
+  // fetched slots
+  const [apiSlots, setApiSlots] = useState<ApiSlot[]>([]);
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
+
+  // multi-select (key by slot start ISO string)
+  const [selectedStarts, setSelectedStarts] = useState<Set<string>>(
     () => new Set(),
   );
 
@@ -144,33 +65,65 @@ export default function HomePage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const allSlots = useMemo(() => generateSlots(), []);
-
-  const slotsWithAvailability: SlotWithAvailability[] = useMemo(() => {
-    if (!date) return [];
-
-    const isToday = date === minDate;
-    if (!isToday) return allSlots.map((s) => ({ ...s, unavailable: false }));
-
-    const nowMins = nowMinutesLA();
-    return allSlots.map((s) => ({
-      ...s,
-      unavailable: s.endMinutes <= nowMins,
-    }));
-  }, [date, minDate, allSlots]);
-
   const selectedCount = selectedStarts.size;
 
-  function toggleSlot(slot: SlotWithAvailability) {
-    if (slot.unavailable) {
+  async function refreshSlots(currentDate: string) {
+    if (!currentDate) {
+      setApiSlots([]);
+      return;
+    }
+
+    setIsLoadingSlots(true);
+    try {
+      const res = await fetch(
+        `/api/slots?date=${encodeURIComponent(currentDate)}`,
+      );
+      const data = (await res.json()) as { slots?: ApiSlot[]; error?: string };
+
+      if (!res.ok) {
+        toast.error(data?.error ?? "Failed to load slots");
+        setApiSlots([]);
+        return;
+      }
+
+      setApiSlots(data.slots ?? []);
+    } catch {
+      toast.error("Failed to load slots");
+      setApiSlots([]);
+    } finally {
+      setIsLoadingSlots(false);
+    }
+  }
+
+  // whenever date changes, fetch slots
+  useEffect(() => {
+    void refreshSlots(date);
+    // also clear selection when date changes
+    setSelectedStarts(new Set());
+    setShowForm(false);
+  }, [date]);
+
+  function toggleSlot(slot: ApiSlot) {
+    if (slot.status === "PAST") {
       toast.error("No booking in the past");
       return;
     }
 
+    if (slot.status === "PENDING") {
+      toast.error("This time is pending approval");
+      return;
+    }
+
+    if (slot.status === "CONFIRMED") {
+      toast.error("This time is already confirmed");
+      return;
+    }
+
+    // AVAILABLE
     setSelectedStarts((prev) => {
       const next = new Set(prev);
-      if (next.has(slot.startMinutes)) next.delete(slot.startMinutes);
-      else next.add(slot.startMinutes);
+      if (next.has(slot.start)) next.delete(slot.start);
+      else next.add(slot.start);
       return next;
     });
   }
@@ -193,18 +146,10 @@ export default function HomePage() {
       return;
     }
 
-    const sortedStarts = Array.from(selectedStarts).sort((a, b) => a - b);
-
-    // Build slots payload (ISO UTC)
-    const slots = sortedStarts.map((startMinutes) => {
-      const startUtc = laDateTimeToUtcDate(date, startMinutes);
-      const endUtc = laDateTimeToUtcDate(date, startMinutes + SLOT_MINUTES);
-
-      return {
-        startTime: startUtc.toISOString(),
-        endTime: endUtc.toISOString(),
-      };
-    });
+    // Build slots payload from selected ISO times
+    const selectedSlots = apiSlots
+      .filter((s) => selectedStarts.has(s.start))
+      .map((s) => ({ startTime: s.start, endTime: s.end }));
 
     setIsSubmitting(true);
     try {
@@ -215,7 +160,7 @@ export default function HomePage() {
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim() ? phone.trim() : undefined,
-          slots,
+          slots: selectedSlots,
         }),
       });
 
@@ -226,12 +171,17 @@ export default function HomePage() {
         return;
       }
 
-      toast.success("Appointments created!");
+      toast.success("Submitted! Status: Pending approval");
+
+      // reset UI
       setSelectedStarts(new Set());
       setName("");
       setEmail("");
       setPhone("");
       setShowForm(false);
+
+      // refresh slots so newly created ones show as PENDING immediately
+      await refreshSlots(date);
     } catch {
       toast.error("Network error");
     } finally {
@@ -295,8 +245,6 @@ export default function HomePage() {
                 }
 
                 setDate(value);
-                setSelectedStarts(new Set());
-                setShowForm(false);
                 dateInputRef.current?.blur();
               }}
               className="rounded-lg border px-5 py-3 text-lg bg-white shadow-sm"
@@ -316,38 +264,59 @@ export default function HomePage() {
                   )}
                 </div>
 
-                <ul className="mt-2 grid grid-cols-2 gap-2">
-                  {slotsWithAvailability.map((s) => {
-                    const isSelected = selectedStarts.has(s.startMinutes);
+                {isLoadingSlots ? (
+                  <p className="mt-3 text-sm text-slate-600">Loading...</p>
+                ) : (
+                  <ul className="mt-2 grid grid-cols-2 gap-2">
+                    {apiSlots.map((s) => {
+                      const isSelected = selectedStarts.has(s.start);
 
-                    return (
-                      <li key={s.startMinutes}>
-                        <button
-                          type="button"
-                          onClick={() => toggleSlot(s)}
-                          className={[
-                            "w-full rounded-md border px-3 py-2 text-sm text-left transition",
-                            s.unavailable
-                              ? "bg-red-50 text-red-700 border-red-200 cursor-not-allowed"
+                      const base =
+                        "w-full rounded-md border px-3 py-2 text-sm text-left transition";
+
+                      const cls =
+                        s.status === "PAST"
+                          ? "bg-red-50 text-red-700 border-red-200 cursor-not-allowed"
+                          : s.status === "PENDING"
+                            ? "bg-amber-50 text-amber-800 border-amber-200 cursor-not-allowed"
+                            : s.status === "CONFIRMED"
+                              ? "bg-slate-100 text-slate-600 border-slate-200 cursor-not-allowed"
                               : isSelected
                                 ? "bg-blue-600 text-white border-blue-700 hover:bg-blue-700"
-                                : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50",
-                          ].join(" ")}
-                        >
-                          {s.label}
-                          {s.unavailable && (
-                            <span className="ml-2 text-xs">(Unavailable)</span>
-                          )}
-                          {!s.unavailable && isSelected && (
-                            <span className="ml-2 text-xs opacity-90">
-                              (Selected)
-                            </span>
-                          )}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
+                                : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50";
+
+                      const disabled = s.status !== "AVAILABLE";
+
+                      return (
+                        <li key={s.start}>
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => toggleSlot(s)}
+                            className={[base, cls].join(" ")}
+                          >
+                            {s.label}
+
+                            {s.status === "PAST" && (
+                              <span className="ml-2 text-xs">(Past)</span>
+                            )}
+                            {s.status === "PENDING" && (
+                              <span className="ml-2 text-xs">(Pending)</span>
+                            )}
+                            {s.status === "CONFIRMED" && (
+                              <span className="ml-2 text-xs">(Confirmed)</span>
+                            )}
+                            {s.status === "AVAILABLE" && isSelected && (
+                              <span className="ml-2 text-xs opacity-90">
+                                (Selected)
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
 
                 {selectedCount > 0 && !showForm && (
                   <div className="mt-4">
