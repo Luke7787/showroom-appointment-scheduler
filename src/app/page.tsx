@@ -281,12 +281,12 @@ export default function HomePage() {
                         s.status === "PAST"
                           ? "bg-red-50 text-red-700 border-red-200 cursor-not-allowed"
                           : s.status === "PENDING"
-                            ? "bg-amber-50 text-amber-800 border-amber-200 cursor-not-allowed"
+                            ? "bg-amber-50 text-amber-800 border-amber-200 cursor-pointer hover:bg-amber-100"
                             : s.status === "CONFIRMED"
-                              ? "bg-green-50 text-green-800 border-green-200 cursor-not-allowed"
+                              ? "bg-green-50 text-green-800 border-green-200 cursor-pointer hover:bg-green-100"
                               : isSelected
-                                ? "bg-blue-600 text-white border-blue-700 hover:bg-blue-700"
-                                : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50";
+                                ? "bg-blue-600 text-white border-blue-700 hover:bg-blue-700 cursor-pointer"
+                                : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50 cursor-pointer";
 
                       const isClickable = s.status === "AVAILABLE";
 
