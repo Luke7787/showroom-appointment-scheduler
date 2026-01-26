@@ -64,6 +64,10 @@ export default function HomePage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // confirmation screen
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationSlots, setConfirmationSlots] = useState<ApiSlot[]>([]);
+
   const selectedCount = selectedStarts.size;
 
   async function refreshSlots(currentDate: string) {
@@ -100,6 +104,8 @@ export default function HomePage() {
     // also clear selection when date changes
     setSelectedStarts(new Set());
     setShowForm(false);
+    setShowConfirmation(false);
+    setConfirmationSlots([]);
   }, [date]);
 
   function toggleSlot(slot: ApiSlot) {
@@ -172,7 +178,12 @@ export default function HomePage() {
         return;
       }
 
-      toast.success("Submitted! Status: Pending confirmation");
+      toast.success("Submitted. Pending confirmation");
+
+      // confirmation screen snapshot (before reset)
+      const bookedSlots = apiSlots.filter((s) => selectedStarts.has(s.start));
+      setConfirmationSlots(bookedSlots);
+      setShowConfirmation(true);
 
       // reset UI
       setSelectedStarts(new Set());
@@ -233,6 +244,8 @@ export default function HomePage() {
                   setDate("");
                   setSelectedStarts(new Set());
                   setShowForm(false);
+                  setShowConfirmation(false);
+                  setConfirmationSlots([]);
                   return;
                 }
 
@@ -241,6 +254,8 @@ export default function HomePage() {
                   setDate("");
                   setSelectedStarts(new Set());
                   setShowForm(false);
+                  setShowConfirmation(false);
+                  setConfirmationSlots([]);
                   dateInputRef.current?.blur();
                   return;
                 }
@@ -251,7 +266,79 @@ export default function HomePage() {
               className="rounded-lg border px-5 py-3 text-lg bg-white shadow-sm"
             />
 
-            {date && (
+            {date && showConfirmation && (
+              <div className="mt-8">
+                <div className="rounded-2xl border bg-white shadow-md p-6">
+                  <h3 className="text-xl font-semibold text-slate-900">
+                    Request received ✅
+                  </h3>
+
+                  <p className="mt-2 text-sm text-slate-600">
+                    Your appointment request is pending confirmation. We’ll
+                    confirm it shortly.
+                  </p>
+
+                  <div className="mt-5 rounded-lg bg-slate-50 border p-4">
+                    <div className="text-sm">
+                      <span className="font-semibold text-slate-800">
+                        Date:
+                      </span>{" "}
+                      <span className="text-slate-700">
+                        {new Intl.DateTimeFormat("en-US", {
+                          timeZone: TIME_ZONE,
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        }).format(new Date(date))}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 text-sm font-semibold text-slate-800">
+                      Submitted time slots
+                    </div>
+
+                    <ul className="mt-2 grid grid-cols-2 gap-2">
+                      {confirmationSlots.map((s) => (
+                        <li
+                          key={s.start}
+                          className="rounded-md border bg-white px-3 py-2 text-sm text-slate-800"
+                        >
+                          {s.label}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowConfirmation(false);
+                        setConfirmationSlots([]);
+                      }}
+                      className="w-full sm:w-auto rounded-md bg-slate-900 text-white px-5 py-2.5 font-semibold hover:bg-slate-800 transition"
+                    >
+                      Done
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowConfirmation(false);
+                        setConfirmationSlots([]);
+                        setDate("");
+                      }}
+                      className="w-full sm:w-auto rounded-md border px-5 py-2.5 font-semibold hover:bg-slate-50 transition"
+                    >
+                      Book another day
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {date && !showConfirmation && (
               <div className="mt-6">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="font-semibold">
