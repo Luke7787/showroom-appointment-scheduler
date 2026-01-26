@@ -109,10 +109,8 @@ export default function HomePage() {
     }
 
     if (slot.status === "PENDING") {
-      toast.promise(new Promise((resolve) => setTimeout(resolve, 1200)), {
-        loading: "Awaiting confirmation...",
-        success: "This booking is pending confirmation",
-        error: "Something went wrong",
+      toast("This booking is pending confirmation", {
+        icon: "⏳",
       });
       return;
     }
