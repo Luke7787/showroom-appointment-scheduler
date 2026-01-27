@@ -74,6 +74,17 @@ A full-stack web application that allows customers to book showroom appointments
 
 ---
 
+## 👔 Admin Account (For Review)
+
+To access the admin dashboard, log in with the following admin email:
+
+- **Email:** showroom.team.booking@gmail.com  
+- **Password:** Please reach out to the project owner for the password
+
+Only allow-listed emails are granted admin privileges.
+
+---
+
 ## 📡 API Endpoints
 
 | Method | Endpoint | Description |
