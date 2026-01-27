@@ -1,7 +1,7 @@
 "use client";
 
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 const TIME_ZONE = "America/Los_Angeles";
@@ -11,26 +11,22 @@ type SlotStatus = "AVAILABLE" | "PENDING" | "CONFIRMED" | "PAST";
 type AdminSlot = {
   start: string; // ISO UTC
   end: string; // ISO UTC
-  label: string; // already formatted in LA
+  label: string; // formatted in LA (from API)
   status: SlotStatus;
-
-  // Admin-only: when status is pending/confirmed, we can attach appointment info later
-  // For UI-first, we will look this up from a mock map keyed by start.
 };
 
 type AppointmentDetails = {
+  id: string;
   name: string;
   email: string;
-  phone?: string;
+  phone?: string | null;
   status: "PENDING" | "CONFIRMED";
-  start: string;
-  end: string;
-  label: string;
+  start: string; // ISO UTC
+  end: string; // ISO UTC
+  label?: string; // we will fill from slot.label in the UI
 };
 
 function formatAdminDate(dateStr: string) {
-  // dateStr is YYYY-MM-DD from the date input
-  // Using the "no timezone shift" trick by anchoring at noon UTC
   const safe = new Date(`${dateStr}T12:00:00.000Z`);
   return new Intl.DateTimeFormat("en-US", {
     timeZone: TIME_ZONE,
@@ -49,99 +45,192 @@ function formatPhoneUS(raw: string) {
   return raw;
 }
 
+function getErrMsg(err: unknown) {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return "Unknown error";
+  }
+}
+
 export default function AdminPage() {
   const [date, setDate] = useState("");
   const dateInputRef = useRef<HTMLInputElement | null>(null);
 
-  // View modal
   const [active, setActive] = useState<AppointmentDetails | null>(null);
 
-  // ---- UI-first mock data (replace with fetch later) ----
-  const mockSlots: AdminSlot[] = useMemo(() => {
-    // You can tweak these to match your business hours and slot minutes
-    // For now: sample blocks
-    return [
-      {
-        start: "2026-01-26T17:00:00.000Z",
-        end: "2026-01-26T17:30:00.000Z",
-        label: "9:00 AM – 9:30 AM",
-        status: "PENDING",
-      },
-      {
-        start: "2026-01-26T17:30:00.000Z",
-        end: "2026-01-26T18:00:00.000Z",
-        label: "9:30 AM – 10:00 AM",
-        status: "CONFIRMED",
-      },
-      {
-        start: "2026-01-26T18:00:00.000Z",
-        end: "2026-01-26T18:30:00.000Z",
-        label: "10:00 AM – 10:30 AM",
-        status: "AVAILABLE",
-      },
-      {
-        start: "2026-01-26T18:30:00.000Z",
-        end: "2026-01-26T19:00:00.000Z",
-        label: "10:30 AM – 11:00 AM",
-        status: "AVAILABLE",
-      },
-    ];
-  }, []);
+  const [slots, setSlots] = useState<AdminSlot[]>([]);
+  const [apptByStart, setApptByStart] = useState<
+    Map<string, AppointmentDetails>
+  >(() => new Map());
 
-  const mockAppointmentByStart = useMemo(() => {
-    const map = new Map<
-      string,
-      Omit<AppointmentDetails, "start" | "end" | "label">
-    >();
-    map.set("2026-01-26T17:00:00.000Z", {
-      name: "Jane Doe",
-      email: "jane@example.com",
-      phone: "4158378686",
-      status: "PENDING",
-    });
-    map.set("2026-01-26T17:30:00.000Z", {
-      name: "John Smith",
-      email: "john@example.com",
-      phone: "5105551234",
-      status: "CONFIRMED",
-    });
-    return map;
-  }, []);
-  // ---------------------------------------------
+  const [loading, setLoading] = useState(false);
 
-  const slots = mockSlots; // later: fetched slots by date
+  // Fetch slots + appointments whenever date changes
+  useEffect(() => {
+    if (!date) {
+      setSlots([]);
+      setApptByStart(new Map());
+      return;
+    }
+
+    let cancelled = false;
+
+    async function run() {
+      try {
+        setLoading(true);
+
+        const [slotsRes, apptRes] = await Promise.all([
+          fetch(`/api/slots?date=${encodeURIComponent(date)}`, {
+            method: "GET",
+          }),
+          fetch(`/api/admin/appointments?date=${encodeURIComponent(date)}`, {
+            method: "GET",
+          }),
+        ]);
+
+        if (!slotsRes.ok) {
+          const txt = await slotsRes.text();
+          throw new Error(`Slots API failed: ${slotsRes.status} ${txt}`);
+        }
+        if (!apptRes.ok) {
+          const txt = await apptRes.text();
+          throw new Error(
+            `Admin appointments API failed: ${apptRes.status} ${txt}`,
+          );
+        }
+
+        const slotsJson = (await slotsRes.json()) as
+          | { slots: AdminSlot[] }
+          | AdminSlot[];
+        const apptsJson = (await apptRes.json()) as
+          | { appointments: AppointmentDetails[] }
+          | AppointmentDetails[];
+
+        const slotsArr = Array.isArray(slotsJson) ? slotsJson : slotsJson.slots;
+        const apptsArr = Array.isArray(apptsJson)
+          ? apptsJson
+          : apptsJson.appointments;
+
+        const map = new Map<string, AppointmentDetails>();
+        for (const a of apptsArr) {
+          map.set(a.start, a);
+        }
+
+        if (!cancelled) {
+          setSlots(slotsArr);
+          setApptByStart(map);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          toast(getErrMsg(err) || "Failed to load admin data.", { icon: "❌" });
+          setSlots([]);
+          setApptByStart(new Map());
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
+
+  // Helpful for looking up labels for modal (so we show slot label even if appt lacks it)
+  const labelByStart = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of slots) m.set(s.start, s.label);
+    return m;
+  }, [slots]);
 
   function onView(slot: AdminSlot) {
-    const appt = mockAppointmentByStart.get(slot.start);
+    const appt = apptByStart.get(slot.start);
     if (!appt) {
-      toast("No appointment info for this slot yet.", { icon: "ℹ️" });
+      toast("No appointment for this slot (available for booking).", {
+        icon: "ℹ️",
+      });
       return;
     }
 
     setActive({
       ...appt,
-      start: slot.start,
-      end: slot.end,
       label: slot.label,
     });
   }
 
-  function onConfirm(slot: AdminSlot) {
-    if (slot.status !== "PENDING") {
+  async function onConfirm(slot: AdminSlot) {
+    const appt = apptByStart.get(slot.start);
+    if (!appt) {
+      toast("No appointment found for this slot.", { icon: "ℹ️" });
+      return;
+    }
+    if (appt.status !== "PENDING") {
       toast("Only pending requests can be confirmed.", { icon: "ℹ️" });
       return;
     }
-    toast.success("Marked as confirmed (UI only for now)");
-    // later: PATCH /api/admin/appointments/:id status CONFIRMED
+
+    try {
+      const res = await fetch(`/api/admin/appointments/${appt.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "CONFIRMED" }),
+      });
+
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`Confirm failed: ${res.status} ${txt}`);
+      }
+
+      toast.success("Confirmed");
+
+      const updated = new Map(apptByStart);
+      updated.set(slot.start, { ...appt, status: "CONFIRMED" });
+      setApptByStart(updated);
+
+      setActive((cur) =>
+        cur?.id === appt.id ? { ...cur, status: "CONFIRMED" } : cur,
+      );
+    } catch (e: unknown) {
+      toast(getErrMsg(e) || "Confirm failed.", { icon: "❌" });
+    }
   }
 
-  function onDecline(slot: AdminSlot) {
-    if (slot.status !== "PENDING") {
+  async function onDecline(slot: AdminSlot) {
+    const appt = apptByStart.get(slot.start);
+    if (!appt) {
+      toast("No appointment found for this slot.", { icon: "ℹ️" });
+      return;
+    }
+    if (appt.status !== "PENDING") {
       toast("Only pending requests can be declined.", { icon: "ℹ️" });
       return;
     }
-    toast("Declined (UI only for now)", { icon: "🗑️" });
-    // later: DELETE /api/admin/appointments/:id or set status CANCELED
+
+    try {
+      const res = await fetch(`/api/admin/appointments/${appt.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`Decline failed: ${res.status} ${txt}`);
+      }
+
+      toast("Declined", { icon: "🗑️" });
+
+      const next = new Map(apptByStart);
+      next.delete(slot.start);
+      setApptByStart(next);
+
+      setActive((cur) => (cur?.id === appt.id ? null : cur));
+    } catch (e: unknown) {
+      toast(getErrMsg(e) || "Decline failed.", { icon: "❌" });
+    }
   }
 
   return (
@@ -203,9 +292,14 @@ export default function AdminPage() {
                         ({formatAdminDate(date)})
                       </span>
                     </h3>
-                    <span className="text-sm text-slate-700">
-                      Hover a slot for actions
-                    </span>
+
+                    {loading ? (
+                      <span className="text-sm text-slate-700">Loading…</span>
+                    ) : (
+                      <span className="text-sm text-slate-700">
+                        Hover a slot for actions
+                      </span>
+                    )}
                   </div>
 
                   <div className="p-4">
@@ -232,11 +326,11 @@ export default function AdminPage() {
                                   {s.status === "PAST" && "(Past)"}
                                   {s.status === "PENDING" && "(Pending)"}
                                   {s.status === "CONFIRMED" && "(Confirmed)"}
-                                  {s.status === "AVAILABLE" && "(Available)"}
+                                  {s.status === "AVAILABLE" &&
+                                    "(Available for booking)"}
                                 </span>
                               </div>
 
-                              {/* Hover actions: show only for pending/confirmed for now */}
                               {(s.status === "PENDING" ||
                                 s.status === "CONFIRMED") && (
                                 <div className="mt-2 flex gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition">
@@ -248,21 +342,25 @@ export default function AdminPage() {
                                     View
                                   </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => onConfirm(s)}
-                                    className="rounded-md bg-green-600 px-2 py-1 text-xs font-semibold text-white hover:bg-green-700 transition"
-                                  >
-                                    Confirm
-                                  </button>
+                                  {s.status === "PENDING" && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => onConfirm(s)}
+                                        className="rounded-md bg-green-600 px-2 py-1 text-xs font-semibold text-white hover:bg-green-700 transition"
+                                      >
+                                        Confirm
+                                      </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => onDecline(s)}
-                                    className="rounded-md bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700 transition"
-                                  >
-                                    Decline
-                                  </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => onDecline(s)}
+                                        className="rounded-md bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700 transition"
+                                      >
+                                        Decline
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -271,17 +369,17 @@ export default function AdminPage() {
                       })}
                     </ul>
 
-                    <p className="mt-3 text-xs text-slate-600">
-                      UI-only right now. Next step is wiring these buttons to
-                      admin API routes.
-                    </p>
+                    {slots.length === 0 && !loading && (
+                      <p className="mt-3 text-sm text-slate-600">
+                        No slots returned for this date.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* View modal */}
           {active && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div
@@ -295,7 +393,9 @@ export default function AdminPage() {
                     <h3 className="text-lg font-semibold">
                       Appointment details
                     </h3>
-                    <p className="text-sm text-slate-600">{active.label}</p>
+                    <p className="text-sm text-slate-600">
+                      {active.label ?? labelByStart.get(active.start) ?? ""}
+                    </p>
                   </div>
 
                   <button
