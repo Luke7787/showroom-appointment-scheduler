@@ -67,6 +67,11 @@ export default function HomePage() {
   // confirmation screen
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationSlots, setConfirmationSlots] = useState<ApiSlot[]>([]);
+  const [confirmationInfo, setConfirmationInfo] = useState<{
+    name: string;
+    email: string;
+    phone?: string;
+  } | null>(null);
 
   const selectedCount = selectedStarts.size;
 
@@ -106,6 +111,7 @@ export default function HomePage() {
     setShowForm(false);
     setShowConfirmation(false);
     setConfirmationSlots([]);
+    setConfirmationInfo(null);
   }, [date]);
 
   function toggleSlot(slot: ApiSlot) {
@@ -183,6 +189,11 @@ export default function HomePage() {
       // confirmation screen snapshot (before reset)
       const bookedSlots = apiSlots.filter((s) => selectedStarts.has(s.start));
       setConfirmationSlots(bookedSlots);
+      setConfirmationInfo({
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim() ? phone.trim() : undefined,
+      });
       setShowConfirmation(true);
 
       // reset UI
@@ -246,6 +257,7 @@ export default function HomePage() {
                   setShowForm(false);
                   setShowConfirmation(false);
                   setConfirmationSlots([]);
+                  setConfirmationInfo(null);
                   return;
                 }
 
@@ -256,6 +268,7 @@ export default function HomePage() {
                   setShowForm(false);
                   setShowConfirmation(false);
                   setConfirmationSlots([]);
+                  setConfirmationInfo(null);
                   dateInputRef.current?.blur();
                   return;
                 }
@@ -270,10 +283,10 @@ export default function HomePage() {
               <div className="mt-8">
                 <div className="rounded-2xl border bg-white shadow-md p-6">
                   <h3 className="text-xl font-semibold text-slate-900">
-                    Request received ✅
+                    Request received
                   </h3>
 
-                  <p className="mt-2 text-sm text-slate-600">
+                  <p className="mt-2 text-sm text-slate-700">
                     Your appointment request is pending confirmation. We’ll
                     confirm it shortly.
                   </p>
@@ -294,7 +307,32 @@ export default function HomePage() {
                       </span>
                     </div>
 
-                    <div className="mt-3 text-sm font-semibold text-slate-800">
+                    {confirmationInfo && (
+                      <div className="mt-4 grid gap-2 text-sm text-slate-700">
+                        <div>
+                          <span className="font-semibold text-slate-800">
+                            Name:
+                          </span>{" "}
+                          {confirmationInfo.name}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-slate-800">
+                            Email:
+                          </span>{" "}
+                          {confirmationInfo.email}
+                        </div>
+                        {confirmationInfo.phone && (
+                          <div>
+                            <span className="font-semibold text-slate-800">
+                              Phone:
+                            </span>{" "}
+                            {confirmationInfo.phone}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-4 text-sm font-semibold text-slate-800">
                       Submitted time slots
                     </div>
 
@@ -316,6 +354,7 @@ export default function HomePage() {
                       onClick={() => {
                         setShowConfirmation(false);
                         setConfirmationSlots([]);
+                        setConfirmationInfo(null);
                       }}
                       className="w-full sm:w-auto rounded-md bg-slate-900 text-white px-5 py-2.5 font-semibold hover:bg-slate-800 transition"
                     >
@@ -327,6 +366,7 @@ export default function HomePage() {
                       onClick={() => {
                         setShowConfirmation(false);
                         setConfirmationSlots([]);
+                        setConfirmationInfo(null);
                         setDate("");
                       }}
                       className="w-full sm:w-auto rounded-md border px-5 py-2.5 font-semibold hover:bg-slate-50 transition"
