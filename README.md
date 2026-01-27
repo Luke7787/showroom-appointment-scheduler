@@ -1,77 +1,98 @@
-**Showroom Appointment Scheduler**
+# 🗓️ Showroom Appointment Scheduler
 
-**Live Site:** https://showroom-appointment-scheduler.onrender.com
+**Live Site:**  
+👉 https://showroom-appointment-scheduler.onrender.com
 
-**Tech Stack**
+A full-stack web application that allows customers to book showroom appointments and provides admins with a secure dashboard to manage scheduling.
 
-  **Frontend**
-    - Next.js (App Router)
-    - React
-    - TypeScript
-    - Tailwind CSS
-    - React Hot Toast for notifications
+---
 
-  **Backend**
-    - Next.js API Routes (App Router)
-    - Prisma ORM
-    - PostgreSQL (hosted on Render)
+## 🚀 Tech Stack
 
-**Authentication**
-  - Clerk for user authentication and session handling
-  - Admin access controlled by allow-listed admin emails
+### Frontend
+- Next.js (App Router)
+- React
+- TypeScript
+- Tailwind CSS
+- React Hot Toast (notifications)
 
-**Deployment**
-  - Render Web Service
-  - Connected to Render PostgreSQL
-  - Always-on service (Starter tier)
+### Backend
+- Next.js API Routes (App Router)
+- Prisma ORM
+- PostgreSQL (hosted on Render)
 
-**Features**
+---
 
-  **Customer Features**
-  
-  - View available time slots for a selected date
+## 🔐 Authentication & Authorization
+- Clerk for user authentication and session handling
+- Admin access restricted via allow-listed admin emails
+- Frontend verifies admin privileges via API before rendering admin dashboard
 
-  **Time slots integrated:**
-    - business hours
-    - slot duration
-    - existing bookings
-    - past time blocking
-    
-  **Book an appointment with:**
-    - name
-    - email
-    - optional phone number
+---
 
-  **Admin Features**
-    - Secure admin-only dashboard
-    - View all appointment requests by date
+## ☁️ Deployment
+- Render Web Service
+- Connected to Render PostgreSQL instance
+- Always-on service (Starter tier)
 
-  **See real-time slot status:**
-    - Available
-    - Pending
-    - Confirmed
-    - Past
-    - View full appointment details
-    - Confirm pending appointments
-    - Decline (delete) pending appointments
+---
 
-  **Scheduling Logic**
-    - Prevents double booking
-    - Prevents booking past time slots
-    - Automatically converts local time to UTC for storage
+## ✨ Features
 
-**API Endpoints**
-  - GET /api/slots?date=YYYY-MM-DD : Returns all time slots for the selected date with status
-  - POST /api/appointments : Creates a new booking request (status = PENDING)
-  - GET /api/admin/appointments?date=YYYY-MM-DD : Get Appointments for a Date
-  - PATCH /api/admin/appointments/[id] : Confirm Appointment
-  - DELETE /api/admin/appointments/[id] : Decline Appointment
-  - GET /api/is-admin : Used by frontend to verify admin privileges
+### 👤 Customer Features
+- View available time slots for a selected date
+- Time slot availability is calculated using:
+  - Business hours
+  - Slot duration
+  - Existing bookings
+  - Past time blocking
+- Book an appointment with:
+  - Name
+  - Email
+  - Optional phone number
 
-**Database**
-  - PostgreSQL hosted on Render
-  - Migrations tracked via Prisma
-  - Prisma schema manages:
-      - appointments
-      - timestamps
-      - status enums
+---
+
+### 🛠️ Admin Features
+- Secure, admin-only dashboard
+- View all appointments by date
+- Real-time slot status:
+  - Available
+  - Pending
+  - Confirmed
+  - Past
+- View full appointment details
+- Confirm pending appointments
+- Decline (delete) pending appointments
+
+---
+
+### ⏱️ Scheduling Logic
+- Prevents double booking
+- Prevents booking past time slots
+- Automatically converts local time to UTC for database storage
+
+---
+
+## 📡 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|--------|------------|
+| GET | `/api/slots?date=YYYY-MM-DD` | Returns all time slots for selected date with status |
+| POST | `/api/appointments` | Creates a new booking request (status = `PENDING`) |
+| GET | `/api/admin/appointments?date=YYYY-MM-DD` | Returns appointments for selected date (admin only) |
+| PATCH | `/api/admin/appointments/[id]` | Confirms an appointment (admin only) |
+| DELETE | `/api/admin/appointments/[id]` | Declines an appointment (admin only) |
+| GET | `/api/is-admin` | Verifies admin privileges for frontend |
+
+---
+
+## 🗄️ Database
+
+- PostgreSQL hosted on Render
+- Schema managed with Prisma
+- Migrations tracked via Prisma Migrate
+- Main models include:
+  - Appointments
+  - Timestamps
+  - Status enums
