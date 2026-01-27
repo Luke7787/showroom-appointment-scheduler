@@ -326,7 +326,10 @@ export default function HomePage() {
                             <span className="font-semibold text-slate-800">
                               Phone:
                             </span>{" "}
-                            {confirmationInfo.phone}
+                            {confirmationInfo.phone.replace(
+                              /(\d{3})(\d{3})(\d{4})/,
+                              "($1) $2-$3",
+                            )}
                           </div>
                         )}
                       </div>
@@ -380,84 +383,96 @@ export default function HomePage() {
 
             {date && !showConfirmation && (
               <div className="mt-6">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-semibold">
-                    Time slots (30 minutes each)
-                  </h3>
+                <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+                  {/* "Table" header */}
+                  <div className="flex items-center justify-between gap-3 px-4 py-3 border-b bg-slate-50">
+                    <h3 className="font-semibold text-slate-900">
+                      Time slots{" "}
+                      <span className="text-slate-600 font-medium">
+                        (30 minutes each)
+                      </span>
+                    </h3>
 
-                  {selectedCount > 0 && (
-                    <span className="text-sm text-slate-600">
-                      Selected: {selectedCount}
-                    </span>
-                  )}
-                </div>
-
-                {isLoadingSlots ? (
-                  <p className="mt-3 text-sm text-slate-600">Loading...</p>
-                ) : (
-                  <ul className="mt-2 grid grid-cols-2 gap-2">
-                    {apiSlots.map((s) => {
-                      const isSelected = selectedStarts.has(s.start);
-
-                      const base =
-                        "w-full rounded-md border px-3 py-2 text-sm text-left transition";
-
-                      const cls =
-                        s.status === "PAST"
-                          ? "bg-red-50 text-red-700 border-red-200 cursor-not-allowed"
-                          : s.status === "PENDING"
-                            ? "bg-amber-50 text-amber-800 border-amber-200 cursor-pointer hover:bg-amber-100"
-                            : s.status === "CONFIRMED"
-                              ? "bg-green-50 text-green-800 border-green-200 cursor-pointer hover:bg-green-100"
-                              : isSelected
-                                ? "bg-blue-600 text-white border-blue-700 hover:bg-blue-700 cursor-pointer"
-                                : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50 cursor-pointer";
-
-                      const isClickable = s.status === "AVAILABLE";
-
-                      return (
-                        <li key={s.start}>
-                          <button
-                            type="button"
-                            aria-disabled={!isClickable}
-                            tabIndex={isClickable ? 0 : -1}
-                            onClick={() => toggleSlot(s)}
-                            className={[base, cls].join(" ")}
-                          >
-                            {s.label}
-
-                            {s.status === "PAST" && (
-                              <span className="ml-2 text-xs">(Past)</span>
-                            )}
-                            {s.status === "PENDING" && (
-                              <span className="ml-2 text-xs">(Pending)</span>
-                            )}
-                            {s.status === "CONFIRMED" && (
-                              <span className="ml-2 text-xs">(Confirmed)</span>
-                            )}
-                            {s.status === "AVAILABLE" && isSelected && (
-                              <span className="ml-2 text-xs opacity-90">
-                                (Selected)
-                              </span>
-                            )}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-
-                {selectedCount > 0 && !showForm && (
-                  <div className="mt-4">
-                    <button
-                      type="button"
-                      onClick={() => setShowForm(true)}
-                      className="w-full rounded-md bg-slate-900 text-white py-3 font-semibold hover:bg-slate-800 transition"
-                    >
-                      Continue ({selectedCount} selected)
-                    </button>
+                    {selectedCount > 0 && (
+                      <span className="text-sm text-slate-900 font-semibold">
+                        Selected: {selectedCount}
+                      </span>
+                    )}
                   </div>
-                )}
+
+                  {/* "Table" body */}
+                  <div className="p-4">
+                    {isLoadingSlots ? (
+                      <p className="text-sm text-slate-600">Loading...</p>
+                    ) : (
+                      <ul className="grid grid-cols-2 gap-2">
+                        {apiSlots.map((s) => {
+                          const isSelected = selectedStarts.has(s.start);
+
+                          // table-cell-like base style
+                          const base =
+                            "w-full rounded-md border px-3 py-2 text-sm text-left transition shadow-sm";
+
+                          const cls =
+                            s.status === "PAST"
+                              ? "bg-red-50 text-red-700 border-red-200 cursor-not-allowed"
+                              : s.status === "PENDING"
+                                ? "bg-amber-50 text-amber-800 border-amber-200 cursor-pointer hover:bg-amber-100"
+                                : s.status === "CONFIRMED"
+                                  ? "bg-green-50 text-green-800 border-green-200 cursor-pointer hover:bg-green-100"
+                                  : isSelected
+                                    ? "bg-blue-600 text-white border-blue-700 hover:bg-blue-700 cursor-pointer"
+                                    : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50 cursor-pointer";
+
+                          const isClickable = s.status === "AVAILABLE";
+
+                          return (
+                            <li key={s.start}>
+                              <button
+                                type="button"
+                                aria-disabled={!isClickable}
+                                tabIndex={isClickable ? 0 : -1}
+                                onClick={() => toggleSlot(s)}
+                                className={[base, cls].join(" ")}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-medium">{s.label}</span>
+
+                                  {s.status === "PAST" && (
+                                    <span className="text-xs">(Past)</span>
+                                  )}
+                                  {s.status === "PENDING" && (
+                                    <span className="text-xs">(Pending)</span>
+                                  )}
+                                  {s.status === "CONFIRMED" && (
+                                    <span className="text-xs">(Confirmed)</span>
+                                  )}
+                                  {s.status === "AVAILABLE" && isSelected && (
+                                    <span className="text-xs opacity-90">
+                                      (Selected)
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+
+                    {selectedCount > 0 && !showForm && (
+                      <div className="mt-4">
+                        <button
+                          type="button"
+                          onClick={() => setShowForm(true)}
+                          className="w-full rounded-md bg-slate-900 text-white py-3 font-semibold hover:bg-slate-800 transition"
+                        >
+                          Continue ({selectedCount} selected)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
