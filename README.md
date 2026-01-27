@@ -6,6 +6,15 @@
 A full-stack web application that allows customers to book showroom appointments and provides admins with a secure dashboard to manage scheduling.
 
 ---
+## 🧱 System Architecture
+
+<p align="center">
+  <img
+    width="900"
+    alt="System Architecture Diagram — Created by Luke Zhuang"
+    src="https://github.com/user-attachments/assets/c1b7bfe6-ffac-45fc-8e6b-11adc981b9cd"
+  />
+</p>
 
 ## 🚀 Tech Stack
 
@@ -18,6 +27,7 @@ A full-stack web application that allows customers to book showroom appointments
 
 ### Backend
 - Next.js API Routes (App Router)
+- TypeScript
 - Prisma ORM
 - PostgreSQL (hosted on Render)
 
