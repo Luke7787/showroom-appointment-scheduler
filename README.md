@@ -4,17 +4,17 @@
 
 **Tech Stack**
 
-**Frontend**
-  - Next.js (App Router)
-  - React
-  - TypeScript
-  - Tailwind CSS
-  - React Hot Toast for notifications
+  **Frontend**
+    - Next.js (App Router)
+    - React
+    - TypeScript
+    - Tailwind CSS
+    - React Hot Toast for notifications
 
-**Backend**
-  - Next.js API Routes (App Router)
-  - Prisma ORM
-  - PostgreSQL (hosted on Render)
+  **Backend**
+    - Next.js API Routes (App Router)
+    - Prisma ORM
+    - PostgreSQL (hosted on Render)
 
 **Authentication**
   - Clerk for user authentication and session handling
@@ -27,38 +27,38 @@
 
 **Features**
 
-**Customer Features**
+  **Customer Features**
+  
+  - View available time slots for a selected date
 
-- View available time slots for a selected date
-
-**Time slots integrated:**
-  - business hours
-  - slot duration
-  - existing bookings
-  - past time blocking
+  **Time slots integrated:**
+    - business hours
+    - slot duration
+    - existing bookings
+    - past time blocking
     
-**Book an appointment with:**
-  - name
-  - email
-  - optional phone number
+  **Book an appointment with:**
+    - name
+    - email
+    - optional phone number
 
-**Admin Features**
-  - Secure admin-only dashboard
-  - View all appointment requests by date
+  **Admin Features**
+    - Secure admin-only dashboard
+    - View all appointment requests by date
 
-**See real-time slot status:**
-  - Available
-  - Pending
-  - Confirmed
-  - Past
-  - View full appointment details
-  - Confirm pending appointments
-  - Decline (delete) pending appointments
+  **See real-time slot status:**
+    - Available
+    - Pending
+    - Confirmed
+    - Past
+    - View full appointment details
+    - Confirm pending appointments
+    - Decline (delete) pending appointments
 
-**Scheduling Logic**
-  - Prevents double booking
-  - Prevents booking past time slots
-  - Automatically converts local time to UTC for storage
+  **Scheduling Logic**
+    - Prevents double booking
+    - Prevents booking past time slots
+    - Automatically converts local time to UTC for storage
 
 **API Endpoints**
   - GET /api/slots?date=YYYY-MM-DD : Returns all time slots for the selected date with status
