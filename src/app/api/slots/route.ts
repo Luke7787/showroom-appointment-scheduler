@@ -122,7 +122,11 @@ export async function GET(req: Request) {
   const endMin = toMinutes(BUSINESS_END_HOUR, 0);
 
   const now = new Date();
-  const isToday = dateStr === todayLA();
+
+  // ✅ Fix: mark *entire past days* as PAST (not just "today")
+  const todayStr = todayLA();
+  const isToday = dateStr === todayStr;
+  const isPastDay = dateStr < todayStr; // YYYY-MM-DD string compare is safe
 
   const slots: Array<{
     start: string;
@@ -135,10 +139,10 @@ export async function GET(req: Request) {
     const slotStartUtc = laLocalToUtcDate(parsed, t);
     const slotEndUtc = laLocalToUtcDate(parsed, t + SLOT_MINUTES);
 
-    // ✅ Past slots (only relevant for today)
-    // Fix: treat as past if it has ALREADY STARTED (strictly before now)
-    // This prevents booking 11:00–11:30 at 11:01.
-    if (isToday && slotEndUtc <= now) {
+    // ✅ Past slots:
+    // - If the selected date is before today (LA), everything is PAST
+    // - If today, a slot is PAST only once the slot has ended (end <= now)
+    if (isPastDay || (isToday && slotEndUtc <= now)) {
       slots.push({
         start: slotStartUtc.toISOString(),
         end: slotEndUtc.toISOString(),
