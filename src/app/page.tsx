@@ -3,6 +3,7 @@
 import { SignedIn, SignedOut, UserButton, SignInButton } from "@clerk/nextjs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 const TIME_ZONE = "America/Los_Angeles";
 
@@ -43,6 +44,8 @@ function todayLA() {
 }
 
 export default function HomePage() {
+  const router = useRouter();
+
   const minDate = useMemo(() => todayLA(), []);
   const [date, setDate] = useState("");
   const dateInputRef = useRef<HTMLInputElement | null>(null);
@@ -74,6 +77,29 @@ export default function HomePage() {
   } | null>(null);
 
   const selectedCount = selectedStarts.size;
+
+  // ✅ If signed-in user is admin, redirect to /admin
+  useEffect(() => {
+    let cancelled = false;
+
+    async function goIfAdmin() {
+      try {
+        const res = await fetch("/api/is-admin", { cache: "no-store" });
+        const data = (await res.json()) as { isAdmin?: boolean };
+        if (!cancelled && data.isAdmin) {
+          router.replace("/admin");
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    void goIfAdmin();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   async function refreshSlots(currentDate: string) {
     if (!currentDate) {
