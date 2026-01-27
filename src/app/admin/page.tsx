@@ -23,7 +23,7 @@ type AppointmentDetails = {
   status: "PENDING" | "CONFIRMED";
   start: string; // ISO UTC
   end: string; // ISO UTC
-  label?: string; // we will fill from slot.label in the UI
+  label?: string; // filled from slot.label in UI
 };
 
 function formatAdminDate(dateStr: string) {
@@ -68,80 +68,84 @@ export default function AdminPage() {
 
   const [loading, setLoading] = useState(false);
 
-  // Fetch slots + appointments whenever date changes
+  async function reload(currentDate?: string) {
+    const d = currentDate ?? date;
+    if (!d) return;
+
+    setLoading(true);
+    try {
+      const [slotsRes, apptRes] = await Promise.all([
+        fetch(`/api/slots?date=${encodeURIComponent(d)}`, {
+          method: "GET",
+          credentials: "include",
+        }),
+        fetch(`/api/admin/appointments?date=${encodeURIComponent(d)}`, {
+          method: "GET",
+          credentials: "include",
+        }),
+      ]);
+
+      if (!slotsRes.ok) {
+        const txt = await slotsRes.text();
+        throw new Error(`Slots API failed: ${slotsRes.status} ${txt}`);
+      }
+      if (!apptRes.ok) {
+        const txt = await apptRes.text();
+        throw new Error(
+          `Admin appointments API failed: ${apptRes.status} ${txt}`,
+        );
+      }
+
+      const slotsJson = (await slotsRes.json()) as
+        | { slots: AdminSlot[] }
+        | AdminSlot[];
+      const apptsJson = (await apptRes.json()) as
+        | { appointments: AppointmentDetails[] }
+        | AppointmentDetails[];
+
+      const slotsArr = Array.isArray(slotsJson) ? slotsJson : slotsJson.slots;
+      const apptsArr = Array.isArray(apptsJson)
+        ? apptsJson
+        : apptsJson.appointments;
+
+      const map = new Map<string, AppointmentDetails>();
+      for (const a of apptsArr) map.set(a.start, a);
+
+      setSlots(slotsArr);
+      setApptByStart(map);
+    } catch (err: unknown) {
+      toast(getErrMsg(err) || "Failed to refresh.", { icon: "❌" });
+      setSlots([]);
+      setApptByStart(new Map());
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (!date) {
       setSlots([]);
       setApptByStart(new Map());
+      setActive(null);
       return;
     }
 
     let cancelled = false;
 
-    async function run() {
+    (async () => {
       try {
-        setLoading(true);
-
-        const [slotsRes, apptRes] = await Promise.all([
-          fetch(`/api/slots?date=${encodeURIComponent(date)}`, {
-            method: "GET",
-          }),
-          fetch(`/api/admin/appointments?date=${encodeURIComponent(date)}`, {
-            method: "GET",
-          }),
-        ]);
-
-        if (!slotsRes.ok) {
-          const txt = await slotsRes.text();
-          throw new Error(`Slots API failed: ${slotsRes.status} ${txt}`);
-        }
-        if (!apptRes.ok) {
-          const txt = await apptRes.text();
-          throw new Error(
-            `Admin appointments API failed: ${apptRes.status} ${txt}`,
-          );
-        }
-
-        const slotsJson = (await slotsRes.json()) as
-          | { slots: AdminSlot[] }
-          | AdminSlot[];
-        const apptsJson = (await apptRes.json()) as
-          | { appointments: AppointmentDetails[] }
-          | AppointmentDetails[];
-
-        const slotsArr = Array.isArray(slotsJson) ? slotsJson : slotsJson.slots;
-        const apptsArr = Array.isArray(apptsJson)
-          ? apptsJson
-          : apptsJson.appointments;
-
-        const map = new Map<string, AppointmentDetails>();
-        for (const a of apptsArr) {
-          map.set(a.start, a);
-        }
-
-        if (!cancelled) {
-          setSlots(slotsArr);
-          setApptByStart(map);
-        }
-      } catch (err: unknown) {
-        if (!cancelled) {
-          toast(getErrMsg(err) || "Failed to load admin data.", { icon: "❌" });
-          setSlots([]);
-          setApptByStart(new Map());
-        }
+        await reload(date);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (cancelled) return;
       }
-    }
-
-    run();
+    })();
 
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
-  // Helpful for looking up labels for modal (so we show slot label even if appt lacks it)
   const labelByStart = useMemo(() => {
     const m = new Map<string, string>();
     for (const s of slots) m.set(s.start, s.label);
@@ -175,8 +179,10 @@ export default function AdminPage() {
     }
 
     try {
-      const res = await fetch(`/api/admin/appointments/${appt.id}`, {
+      const id = encodeURIComponent(String(appt.id));
+      const res = await fetch(`/api/admin/appointments/${id}`, {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "CONFIRMED" }),
       });
@@ -187,10 +193,7 @@ export default function AdminPage() {
       }
 
       toast.success("Confirmed");
-
-      const updated = new Map(apptByStart);
-      updated.set(slot.start, { ...appt, status: "CONFIRMED" });
-      setApptByStart(updated);
+      await reload();
 
       setActive((cur) =>
         cur?.id === appt.id ? { ...cur, status: "CONFIRMED" } : cur,
@@ -212,8 +215,10 @@ export default function AdminPage() {
     }
 
     try {
-      const res = await fetch(`/api/admin/appointments/${appt.id}`, {
+      const id = encodeURIComponent(String(appt.id));
+      const res = await fetch(`/api/admin/appointments/${id}`, {
         method: "DELETE",
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -222,12 +227,8 @@ export default function AdminPage() {
       }
 
       toast("Declined", { icon: "🗑️" });
-
-      const next = new Map(apptByStart);
-      next.delete(slot.start);
-      setApptByStart(next);
-
-      setActive((cur) => (cur?.id === appt.id ? null : cur));
+      setActive(null);
+      await reload();
     } catch (e: unknown) {
       toast(getErrMsg(e) || "Decline failed.", { icon: "❌" });
     }
