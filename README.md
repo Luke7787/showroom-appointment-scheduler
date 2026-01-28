@@ -117,3 +117,17 @@ Only allow-listed emails are granted admin privileges.
   - Appointments
   - Timestamps
   - Status enums
+
+---
+
+## 📊 SQL Database Tradeoffs (PostgreSQL)
+
+### ✅ Pros
+- Strong data integrity with enforced schemas  
+- Supports joins and complex queries across related tables  
+  - Example: show appointments with user name and email  
+  - Example: filter appointments by admin users
+
+### ⚠️ Cons
+- Schema changes require migrations  
+- Less flexible for rapidly changing data structures
