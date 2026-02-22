@@ -88,91 +88,99 @@ function todayLA() {
 type SlotStatus = "AVAILABLE" | "PENDING" | "CONFIRMED" | "PAST";
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const dateStr = searchParams.get("date");
+  try {
+    const { searchParams } = new URL(req.url);
+    const dateStr = searchParams.get("date");
 
-  if (!dateStr) {
-    return NextResponse.json(
-      { error: "Missing date=YYYY-MM-DD" },
-      { status: 400 },
-    );
-  }
-
-  const parsed = parseYyyyMmDd(dateStr);
-  if (!parsed) {
-    return NextResponse.json(
-      { error: "Invalid date format. Use YYYY-MM-DD." },
-      { status: 400 },
-    );
-  }
-
-  const dayStartUtc = laLocalToUtcDate(parsed, 0);
-  const dayEndUtc = laLocalToUtcDate(parsed, 24 * 60);
-
-  // include status so we can return pending/confirmed
-  const existing = await prisma.appointment.findMany({
-    where: {
-      startTime: { lt: dayEndUtc },
-      endTime: { gt: dayStartUtc },
-    },
-    select: { startTime: true, endTime: true, status: true },
-  });
-
-  const startMin = toMinutes(BUSINESS_START_HOUR, 0);
-  const endMin = toMinutes(BUSINESS_END_HOUR, 0);
-
-  const now = new Date();
-
-  // ✅ Fix: mark *entire past days* as PAST (not just "today")
-  const todayStr = todayLA();
-  const isToday = dateStr === todayStr;
-  const isPastDay = dateStr < todayStr; // YYYY-MM-DD string compare is safe
-
-  const slots: Array<{
-    start: string;
-    end: string;
-    label: string;
-    status: SlotStatus;
-  }> = [];
-
-  for (let t = startMin; t + SLOT_MINUTES <= endMin; t += SLOT_MINUTES) {
-    const slotStartUtc = laLocalToUtcDate(parsed, t);
-    const slotEndUtc = laLocalToUtcDate(parsed, t + SLOT_MINUTES);
-
-    // ✅ Past slots:
-    // - If the selected date is before today (LA), everything is PAST
-    // - If today, a slot is PAST only once the slot has ended (end <= now)
-    if (isPastDay || (isToday && slotEndUtc <= now)) {
-      slots.push({
-        start: slotStartUtc.toISOString(),
-        end: slotEndUtc.toISOString(),
-        label: formatLabel(slotStartUtc, slotEndUtc),
-        status: "PAST",
-      });
-      continue;
+    if (!dateStr) {
+      return NextResponse.json(
+        { error: "Missing date=YYYY-MM-DD" },
+        { status: 400 },
+      );
     }
 
-    const overlapping = existing.find((appt) =>
-      overlaps(slotStartUtc, slotEndUtc, appt.startTime, appt.endTime),
-    );
-
-    if (overlapping) {
-      slots.push({
-        start: slotStartUtc.toISOString(),
-        end: slotEndUtc.toISOString(),
-        label: formatLabel(slotStartUtc, slotEndUtc),
-        status: overlapping.status === "CONFIRMED" ? "CONFIRMED" : "PENDING",
-      });
-      continue;
+    const parsed = parseYyyyMmDd(dateStr);
+    if (!parsed) {
+      return NextResponse.json(
+        { error: "Invalid date format. Use YYYY-MM-DD." },
+        { status: 400 },
+      );
     }
 
-    slots.push({
-      start: slotStartUtc.toISOString(),
-      end: slotEndUtc.toISOString(),
-      label: formatLabel(slotStartUtc, slotEndUtc),
-      status: "AVAILABLE",
+    const dayStartUtc = laLocalToUtcDate(parsed, 0);
+    const dayEndUtc = laLocalToUtcDate(parsed, 24 * 60);
+
+    // include status so we can return pending/confirmed
+    const existing = await prisma.appointment.findMany({
+      where: {
+        startTime: { lt: dayEndUtc },
+        endTime: { gt: dayStartUtc },
+      },
+      select: { startTime: true, endTime: true, status: true },
     });
-  }
 
-  return NextResponse.json({ date: dateStr, slots });
+    const startMin = toMinutes(BUSINESS_START_HOUR, 0);
+    const endMin = toMinutes(BUSINESS_END_HOUR, 0);
+
+    const now = new Date();
+
+    // ✅ Fix: mark *entire past days* as PAST (not just "today")
+    const todayStr = todayLA();
+    const isToday = dateStr === todayStr;
+    const isPastDay = dateStr < todayStr; // YYYY-MM-DD string compare is safe
+
+    const slots: Array<{
+      start: string;
+      end: string;
+      label: string;
+      status: SlotStatus;
+    }> = [];
+
+    for (let t = startMin; t + SLOT_MINUTES <= endMin; t += SLOT_MINUTES) {
+      const slotStartUtc = laLocalToUtcDate(parsed, t);
+      const slotEndUtc = laLocalToUtcDate(parsed, t + SLOT_MINUTES);
+
+      // ✅ Past slots:
+      // - If the selected date is before today (LA), everything is PAST
+      // - If today, a slot is PAST only once the slot has ended (end <= now)
+      if (isPastDay || (isToday && slotEndUtc <= now)) {
+        slots.push({
+          start: slotStartUtc.toISOString(),
+          end: slotEndUtc.toISOString(),
+          label: formatLabel(slotStartUtc, slotEndUtc),
+          status: "PAST",
+        });
+        continue;
+      }
+
+      const overlapping = existing.find((appt) =>
+        overlaps(slotStartUtc, slotEndUtc, appt.startTime, appt.endTime),
+      );
+
+      if (overlapping) {
+        slots.push({
+          start: slotStartUtc.toISOString(),
+          end: slotEndUtc.toISOString(),
+          label: formatLabel(slotStartUtc, slotEndUtc),
+          status: overlapping.status === "CONFIRMED" ? "CONFIRMED" : "PENDING",
+        });
+        continue;
+      }
+
+      slots.push({
+        start: slotStartUtc.toISOString(),
+        end: slotEndUtc.toISOString(),
+        label: formatLabel(slotStartUtc, slotEndUtc),
+        status: "AVAILABLE",
+      });
+    }
+
+    return NextResponse.json({ date: dateStr, slots });
+  } catch (err) {
+    console.error("[api/slots] Error loading slots:", err);
+    return NextResponse.json(
+      { error: "Failed to load slots" },
+      { status: 500 },
+    );
+  }
 }
