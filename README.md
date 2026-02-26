@@ -1,12 +1,10 @@
-# 🗓️ Showroom Appointment Scheduler
+# Luke Zhuang's [Appointment Scheduler](https://showroom-appointment-scheduler.onrender.com)
 
-**Live Site:**  
-👉 https://showroom-appointment-scheduler.onrender.com
+**Live Site:** https://showroom-appointment-scheduler.onrender.com
 
-A full-stack web application that allows customers to book showroom appointments and provides admins with a secure dashboard to manage scheduling.
+Full-stack appointment scheduling application with role-based admin dashboard access.
 
----
-## 🧱 System Architecture
+## System Architecture
 
 <p align="center">
   <img
@@ -16,82 +14,48 @@ A full-stack web application that allows customers to book showroom appointments
   />
 </p>
 
-## 🚀 Tech Stack
-
-### Frontend
+## Tech Stack
 - Next.js (App Router)
-- React
 - TypeScript
 - Tailwind CSS
-- React Hot Toast (notifications)
-
-### Backend
-- Next.js API Routes (App Router)
-- TypeScript
 - Prisma ORM
-- PostgreSQL (hosted on Render)
+- PostgreSQL
+- Render
+- React Hot Toast
 
----
+## Security
+- Clerk for authentication and session management
+- Admin access restricted to allow-listed emails
+- Admin privileges verified via API before rendering the dashboard
 
-## 🔐 Authentication & Authorization
-- Clerk for user authentication and session handling
-- Admin access restricted via allow-listed admin emails
-- Frontend verifies admin privileges via API before rendering admin dashboard
+## Deployment
+- Deployed on Render
+- PostgreSQL hosted on Render
 
----
+## Features
 
-## ☁️ Deployment
-- Render Web Service
-- Connected to Render PostgreSQL instance
-- Always-on service (Starter tier)
+### Customer
+- View available time slots by date
+- Real-time slot status (Available, Pending, Confirmed, Past)
+- Book appointments with name, email, and optional phone number
 
----
-
-## ✨ Features
-
-### 👤 Customer Features
-- View available time slots for a selected date
-- Time slot availability is calculated using:
-  - Business hours
-  - Slot duration
-  - Existing bookings
-  - Past time blocking
-- Book an appointment with:
-  - Name
-  - Email
-  - Optional phone number
-
----
-
-### 🛠️ Admin Features
-- Secure, admin-only dashboard
-- View all appointments by date
-- Real-time slot status:
-  - Available
-  - Pending
-  - Confirmed
-  - Past
+### Admin
+- View available time slots by date
+- Real-time slot status (Available, Pending, Confirmed, Past)
+- Secure dashboard with allow-listed email access
+- Confirm or decline pending appointments
 - View full appointment details
-- Confirm pending appointments
-- Decline (delete) pending appointments
 
----
-
-### ⏱️ Scheduling Logic
-- Prevents double booking
+### Scheduling Logic
 - Prevents booking past time slots
-- Automatically converts local time to UTC for database storage
+- Prevents double booking
 
----
+## Admin Access
 
-## 👔 Admin Account (For Review)
+Admin dashboard access is restricted to allow-listed email accounts.
 
-To access the admin dashboard, log in with the following admin email:
-
-- **Email:** showroom.team.booking@gmail.com  
-- **Password:** Please reach out to the project owner for the password
-
-Only allow-listed emails are granted admin privileges.
+To request admin access for review purposes, please contact:
+lukewzhuang@gmail.com
 
 ---
 
