@@ -57,41 +57,31 @@ Admin dashboard access is restricted to allow-listed email accounts.
 To request admin access for review purposes, please contact:
 lukewzhuang@gmail.com
 
----
-
-## 📡 API Endpoints
+## API Endpoints
 
 | Method | Endpoint | Description |
-|--------|--------|------------|
-| GET | `/api/slots?date=YYYY-MM-DD` | Returns all time slots for selected date with status |
-| POST | `/api/appointments` | Creates a new booking request (status = `PENDING`) |
-| GET | `/api/admin/appointments?date=YYYY-MM-DD` | Returns appointments for selected date (admin only) |
-| PATCH | `/api/admin/appointments/[id]` | Confirms an appointment (admin only) |
-| DELETE | `/api/admin/appointments/[id]` | Declines an appointment (admin only) |
-| GET | `/api/is-admin` | Verifies admin privileges for frontend |
+|--------|----------|------------|
+| GET | `/api/slots?date=YYYY-MM-DD` | Returns time slots for a selected date with current status |
+| POST | `/api/appointments` | Creates a new appointment (status: `PENDING`) |
+| GET | `/api/admin/appointments?date=YYYY-MM-DD` | Returns appointments for a selected date (admin only) |
+| PATCH | `/api/admin/appointments/[id]` | Updates appointment status to confirmed (admin only) |
+| DELETE | `/api/admin/appointments/[id]` | Deletes an appointment (admin only) |
+| GET | `/api/is-admin` | Verifies admin privileges for frontend access |
 
----
+## Database
 
-## 🗄️ Database
-
-- PostgreSQL hosted on Render
+- PostgreSQL
 - Schema managed with Prisma
-- Migrations tracked via Prisma Migrate
-- Main models include:
-  - Appointments
-  - Timestamps
-  - Status enums
+- Migrations handled via Prisma Migrate
 
----
+## SQL Database Tradeoffs (PostgreSQL)
 
-## 📊 SQL Database Tradeoffs (PostgreSQL)
-
-### ✅ Pros
-- Strong data integrity with enforced schemas  
-- Supports joins and complex queries across related tables  
-  - Example: show appointments with user name and email  
+### Pros
+- Enforced schema ensures data integrity
+- Supports joins and complex relational queries
+  - Example: retrieve appointments with user name and email
   - Example: filter appointments by admin users
 
-### ⚠️ Cons
-- Schema changes require migrations  
-- Less flexible for rapidly changing data structures
+### Cons
+- Schema changes require migrations
+- Less flexible for evolving data structures
