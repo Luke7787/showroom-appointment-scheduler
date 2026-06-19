@@ -113,3 +113,71 @@ html {
     opacity: 1;
   }
 }
+
+/* ---------- Themed horizontal scrollbar ---------- */
+.lp-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #6366f1 transparent;
+}
+
+.lp-scrollbar::-webkit-scrollbar {
+  height: 8px;
+  background: transparent;
+}
+
+.lp-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+}
+
+.lp-scrollbar::-webkit-scrollbar-thumb {
+  background-image: linear-gradient(to right, #6366f1, #38bdf8);
+  border-radius: 9999px;
+}
+
+.lp-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-image: linear-gradient(to right, #818cf8, #7dd3fc);
+}
+
+/* ---------- Scroll reveal ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Apple sign-in logo is a black SVG — make it white on the dark button */
+.cl-providerIcon__apple,
+.cl-socialButtonsProviderIcon__apple {
+  filter: brightness(0) invert(1);
+}
+
+@keyframes lp-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.lp-animate-pop {
+  animation: lp-pop-in 0.16s ease-out forwards;
+}

@@ -1,6 +1,79 @@
 "use client";
 
 import { SignInButton } from "@clerk/nextjs";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+
+// Reveal children with a fade-up as they scroll into view
+function Reveal({
+  children,
+  className = "",
+  delay = 0,
+}: {
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      style={{ transitionDelay: `${delay}ms` }}
+      className={`reveal ${visible ? "reveal-visible" : ""} ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+// The next upcoming day, formatted for the hero preview card
+function getNextDayLabel() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(d);
+}
+
+const FAQS = [
+  {
+    q: "How long is each appointment?",
+    a: "Each slot is 30 minutes. If you need more time, simply select multiple back-to-back slots and they'll be reserved together.",
+  },
+  {
+    q: "Do I need an account to book?",
+    a: "Yes, a quick and secure sign-in keeps your appointment private and lets you view or cancel your upcoming visits anytime.",
+  },
+  {
+    q: "Can I cancel or reschedule?",
+    a: "Absolutely. Head to your dashboard, cancel an upcoming visit in one tap, and book a new time that works better for you.",
+  },
+  {
+    q: "When is my appointment confirmed?",
+    a: "You'll see an instant on-screen confirmation when you submit. Our team then reviews and confirms your request shortly after.",
+  },
+];
 
 const FEATURES = [
   {
@@ -72,6 +145,17 @@ const STEPS = [
 ];
 
 export default function LandingPage() {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 16);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const nextDayLabel = getNextDayLabel();
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-slate-950 text-white">
       {/* Background gradient + animated blobs */}
@@ -91,8 +175,20 @@ export default function LandingPage() {
       </div>
 
       {/* Nav */}
-      <header className="relative z-20">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+      <header
+        className={[
+          "sticky top-0 z-30 transition-all duration-300",
+          scrolled
+            ? "border-b border-white/10 bg-slate-950/70 backdrop-blur-xl"
+            : "border-b border-transparent",
+        ].join(" ")}
+      >
+        <nav
+          className={[
+            "mx-auto flex max-w-7xl items-center justify-between px-6 transition-all duration-300",
+            scrolled ? "py-3" : "py-5",
+          ].join(" ")}
+        >
           <div className="flex items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-sky-400 shadow-lg shadow-indigo-500/30">
               <svg
@@ -120,6 +216,9 @@ export default function LandingPage() {
             </a>
             <a href="#how-it-works" className="transition hover:text-white">
               How it works
+            </a>
+            <a href="#faq" className="transition hover:text-white">
+              FAQ
             </a>
           </div>
 
@@ -246,8 +345,11 @@ export default function LandingPage() {
                     <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
                       Your appointment
                     </p>
-                    <p className="mt-1 text-lg font-semibold text-white">
-                      Friday, June 19
+                    <p
+                      className="mt-1 text-lg font-semibold text-white"
+                      suppressHydrationWarning
+                    >
+                      {nextDayLabel}
                     </p>
                   </div>
                   <span className="rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-semibold text-emerald-300">
@@ -295,7 +397,7 @@ export default function LandingPage() {
         id="features"
         className="relative z-10 mx-auto max-w-7xl px-6 py-20"
       >
-        <div className="mx-auto max-w-2xl text-center">
+        <Reveal className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
             Everything you need to book with ease
           </h2>
@@ -303,33 +405,32 @@ export default function LandingPage() {
             A scheduling experience designed to be fast, clear, and effortless
             from the first click.
           </p>
-        </div>
+        </Reveal>
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {FEATURES.map((feature) => (
-            <div
-              key={feature.title}
-              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6 transition hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]"
-            >
-              <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-indigo-500/10 blur-2xl transition group-hover:bg-indigo-500/20" />
-              <span className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-sky-400/20 text-sky-300 ring-1 ring-white/10">
-                <svg
-                  className="h-6 w-6"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.8}
-                >
-                  {feature.icon}
-                </svg>
-              </span>
-              <h3 className="relative mt-5 text-lg font-semibold text-white">
-                {feature.title}
-              </h3>
-              <p className="relative mt-2 text-sm leading-relaxed text-slate-400">
-                {feature.description}
-              </p>
-            </div>
+          {FEATURES.map((feature, i) => (
+            <Reveal key={feature.title} delay={i * 100}>
+              <div className="group relative h-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-6 transition hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]">
+                <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-indigo-500/10 blur-2xl transition group-hover:bg-indigo-500/20" />
+                <span className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-sky-400/20 text-sky-300 ring-1 ring-white/10">
+                  <svg
+                    className="h-6 w-6"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.8}
+                  >
+                    {feature.icon}
+                  </svg>
+                </span>
+                <h3 className="relative mt-5 text-lg font-semibold text-white">
+                  {feature.title}
+                </h3>
+                <p className="relative mt-2 text-sm leading-relaxed text-slate-400">
+                  {feature.description}
+                </p>
+              </div>
+            </Reveal>
           ))}
         </div>
       </section>
@@ -339,18 +440,18 @@ export default function LandingPage() {
         id="how-it-works"
         className="relative z-10 mx-auto max-w-7xl px-6 py-20"
       >
-        <div className="mx-auto max-w-2xl text-center">
+        <Reveal className="mx-auto max-w-2xl text-center">
           <span className="text-sm font-semibold uppercase tracking-wider text-sky-400">
             How it works
           </span>
           <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
             Booked in three simple steps
           </h2>
-        </div>
+        </Reveal>
 
         <div className="mt-14 grid gap-8 md:grid-cols-3">
           {STEPS.map((step, i) => (
-            <div key={step.number} className="relative">
+            <Reveal key={step.number} delay={i * 120} className="relative">
               {i < STEPS.length - 1 && (
                 <div className="absolute left-[3.25rem] top-8 hidden h-px w-full bg-gradient-to-r from-white/20 to-transparent md:block" />
               )}
@@ -361,28 +462,70 @@ export default function LandingPage() {
                 {step.title}
               </h3>
               <p className="mt-2 text-slate-400">{step.description}</p>
-            </div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" className="relative z-10 mx-auto max-w-3xl px-6 py-20">
+        <Reveal className="text-center">
+          <span className="text-sm font-semibold uppercase tracking-wider text-sky-400">
+            FAQ
+          </span>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+            Questions, answered
+          </h2>
+        </Reveal>
+
+        <div className="mt-12 space-y-3">
+          {FAQS.map((faq, i) => (
+            <Reveal key={faq.q} delay={i * 80}>
+              <details className="group rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 transition hover:border-white/20 open:bg-white/[0.06]">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-base font-medium text-white">
+                  {faq.q}
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/15 text-slate-300 transition group-open:rotate-45 group-open:border-sky-400/50 group-open:text-sky-300">
+                    <svg
+                      className="h-3.5 w-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 4.5v15m7.5-7.5h-15"
+                      />
+                    </svg>
+                  </span>
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed text-slate-400">
+                  {faq.a}
+                </p>
+              </details>
+            </Reveal>
           ))}
         </div>
       </section>
 
       {/* Final CTA */}
-      <section className="relative z-10 mx-auto max-w-7xl px-6 pb-24">
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-600/30 via-slate-900 to-sky-600/30 px-8 py-16 text-center shadow-2xl">
-          <div className="lp-animate-blob absolute -left-10 top-0 h-60 w-60 rounded-full bg-indigo-500/20 blur-3xl" />
-          <div className="lp-animate-blob absolute -right-10 bottom-0 h-60 w-60 rounded-full bg-sky-500/20 blur-3xl [animation-delay:6s]" />
+      <Reveal className="relative z-10 mx-auto block max-w-3xl px-6 pb-24">
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.04] px-8 py-12 text-center backdrop-blur-xl">
+          <div className="lp-animate-blob absolute -right-16 -top-16 h-48 w-48 rounded-full bg-indigo-500/15 blur-3xl" />
+          <div className="lp-animate-blob absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-sky-500/15 blur-3xl [animation-delay:6s]" />
           <div className="relative">
-            <h2 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
+            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
               Ready to visit the showroom?
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-lg text-slate-300">
+            <p className="mx-auto mt-3 max-w-md text-slate-300">
               Find a time that works for you and reserve your spot in just a few
               clicks.
             </p>
-            <div className="mt-8 flex justify-center">
+            <div className="mt-7 flex justify-center">
               <SignInButton mode="modal">
-                <button className="group inline-flex items-center justify-center gap-2 rounded-full bg-white px-8 py-4 text-base font-semibold text-slate-900 shadow-xl transition hover:bg-slate-100 hover:shadow-2xl">
-                  Get started — it's free
+                <button className="group inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-sky-400 px-7 py-3.5 text-base font-semibold text-white shadow-xl shadow-indigo-500/30 transition hover:shadow-2xl hover:shadow-indigo-500/40 hover:brightness-110">
+                  Get started for free
                   <svg
                     className="h-4 w-4 transition-transform group-hover:translate-x-1"
                     viewBox="0 0 24 24"
@@ -401,7 +544,7 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
-      </section>
+      </Reveal>
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/10">
@@ -426,10 +569,32 @@ export default function LandingPage() {
               Showroom Scheduler
             </span>
           </div>
-          <p>
-            &copy; {new Date().getFullYear()} Showroom Scheduler. All rights
-            reserved.
-          </p>
+          <div className="flex items-center gap-2">
+            <p>
+              Made by{" "}
+              <span className="font-medium text-slate-300">Luke Zhuang</span>
+            </p>
+            <a
+              href="https://github.com/Luke7787/showroom-appointment-scheduler"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 font-medium text-slate-300 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z"
+                />
+              </svg>
+              GitHub
+            </a>
+          </div>
         </div>
       </footer>
     </div>

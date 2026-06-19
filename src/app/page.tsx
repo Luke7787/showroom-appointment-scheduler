@@ -1,10 +1,11 @@
 "use client";
 
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import LandingPage from "./_components/LandingPage";
+import DatePicker from "./_components/DatePicker";
 
 const TIME_ZONE = "America/Los_Angeles";
 
@@ -15,6 +16,13 @@ type ApiSlot = {
   end: string; // ISO UTC
   label: string; // formatted in LA by backend
   status: ApiSlotStatus;
+};
+
+type MyAppointment = {
+  id: string;
+  start: string; // ISO UTC
+  end: string; // ISO UTC
+  status: "PENDING" | "CONFIRMED" | "CANCELED";
 };
 
 // ----- Time helpers -----
@@ -80,8 +88,7 @@ export default function HomePage() {
   const router = useRouter();
 
   const minDate = useMemo(() => todayLA(), []);
-  const [date, setDate] = useState("");
-  const dateInputRef = useRef<HTMLInputElement | null>(null);
+  const [date, setDate] = useState(() => todayLA());
 
   // fetched slots
   const [apiSlots, setApiSlots] = useState<ApiSlot[]>([]);
@@ -109,10 +116,24 @@ export default function HomePage() {
     phone?: string;
   } | null>(null);
 
+  // current user's upcoming appointments
+  const [myAppointments, setMyAppointments] = useState<MyAppointment[]>([]);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
+
   const selectedCount = selectedStarts.size;
 
   // Quick-pick chips for the next two weeks
   const quickPicks = useMemo(() => quickDates(minDate, 14), [minDate]);
+
+  // Total selected time (each slot is SLOT_MINUTES long)
+  const totalSelectedMinutes = selectedCount * 30;
+  const totalDurationLabel = (() => {
+    const h = Math.floor(totalSelectedMinutes / 60);
+    const m = totalSelectedMinutes % 60;
+    if (h === 0) return `${m} min`;
+    if (m === 0) return `${h} hr`;
+    return `${h} hr ${m} min`;
+  })();
 
   // Live availability breakdown for the selected day
   const availableCount = apiSlots.filter(
@@ -140,12 +161,10 @@ export default function HomePage() {
     }
     setDate(value);
     resetBooking();
-    dateInputRef.current?.blur();
   }
 
   const selectedDateLabel = date
     ? new Intl.DateTimeFormat("en-US", {
-        timeZone: TIME_ZONE,
         weekday: "long",
         month: "long",
         day: "numeric",
@@ -174,6 +193,65 @@ export default function HomePage() {
       cancelled = true;
     };
   }, [router]);
+
+  async function refreshMyAppointments() {
+    try {
+      const res = await fetch("/api/my-appointments", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { appointments?: MyAppointment[] };
+      setMyAppointments(data.appointments ?? []);
+    } catch {
+      // non-critical; ignore
+    }
+  }
+
+  // Load the user's upcoming appointments on mount
+  useEffect(() => {
+    void refreshMyAppointments();
+  }, []);
+
+  async function cancelAppointment(id: string) {
+    setCancelingId(id);
+    try {
+      const res = await fetch(`/api/my-appointments/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        toast.error(data?.error ?? "Could not cancel");
+        return;
+      }
+      toast.success("Appointment canceled");
+      setMyAppointments((prev) => prev.filter((a) => a.id !== id));
+      // Leave the confirmation screen (if showing) so the booking view returns
+      setShowConfirmation(false);
+      setConfirmationSlots([]);
+      setConfirmationInfo(null);
+      // Free the slot back up in the grid if we're viewing that day
+      await refreshSlots(date);
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setCancelingId(null);
+    }
+  }
+
+  function formatApptLabel(startIso: string, endIso: string) {
+    const start = new Date(startIso);
+    const end = new Date(endIso);
+    const day = new Intl.DateTimeFormat("en-US", {
+      timeZone: TIME_ZONE,
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    }).format(start);
+    const timeFmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: TIME_ZONE,
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    return `${day} · ${timeFmt.format(start)} – ${timeFmt.format(end)}`;
+  }
 
   async function refreshSlots(currentDate: string) {
     if (!currentDate) {
@@ -305,6 +383,8 @@ export default function HomePage() {
 
       // refresh slots so newly created ones show as PENDING immediately
       await refreshSlots(date);
+      // refresh the user's upcoming appointments list
+      await refreshMyAppointments();
     } catch {
       toast.error("Network error");
     } finally {
@@ -389,7 +469,7 @@ export default function HomePage() {
               {/* ---------------- Main column ---------------- */}
               <div className="space-y-6 lg:col-span-2">
                 {/* Date selection card */}
-                <div className="lp-animate-fade-up lp-delay-1 rounded-2xl border border-white/10 bg-white/[0.05] p-6 backdrop-blur-xl">
+                <div className="lp-animate-fade-up lp-delay-1 relative z-40 rounded-2xl border border-white/10 bg-white/[0.05] p-6 backdrop-blur-xl">
                   <div className="flex items-center justify-between gap-3">
                     <label className="text-sm font-semibold text-slate-200">
                       Pick a date
@@ -402,7 +482,7 @@ export default function HomePage() {
                   </div>
 
                   {/* Quick-pick day chips */}
-                  <div className="mt-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                  <div className="lp-scrollbar mt-4 -mx-1 flex gap-2 overflow-x-auto px-1 pb-3">
                     {quickPicks.map((q) => {
                       const active = q.value === date;
                       return (
@@ -435,33 +515,17 @@ export default function HomePage() {
                     <label className="mb-1.5 block text-xs font-medium text-slate-400">
                       Or choose any date
                     </label>
-                    <input
-                      ref={dateInputRef}
-                      type="date"
+                    <DatePicker
                       value={date}
                       min={minDate}
-                      onChange={(e) => {
-                        const value = e.target.value;
-
-                        if (!value) {
-                          setDate("");
-                          resetBooking();
-                          return;
-                        }
-
+                      onChange={(value) => {
                         if (value < minDate) {
                           toast.error("No booking in the past");
-                          setDate("");
-                          resetBooking();
-                          dateInputRef.current?.blur();
                           return;
                         }
-
                         setDate(value);
                         resetBooking();
-                        dateInputRef.current?.blur();
                       }}
-                      className="w-full rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-lg text-white shadow-sm outline-none transition [color-scheme:dark] focus:border-sky-400/60 focus:ring-2 focus:ring-sky-400/30"
                     />
                   </div>
                 </div>
@@ -501,7 +565,6 @@ export default function HomePage() {
                         <span className="font-semibold text-white">Date:</span>{" "}
                         <span className="text-slate-300">
                           {new Intl.DateTimeFormat("en-US", {
-                            timeZone: TIME_ZONE,
                             weekday: "long",
                             year: "numeric",
                             month: "long",
@@ -723,6 +786,58 @@ export default function HomePage() {
 
               {/* ---------------- Sidebar ---------------- */}
               <aside className="space-y-6 lg:sticky lg:top-6">
+                {/* My upcoming appointments */}
+                {myAppointments.length > 0 && (
+                  <div className="lp-animate-fade-up overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-500/10 to-sky-500/10 p-5 backdrop-blur-xl">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold text-white">
+                        Your upcoming visits
+                      </h3>
+                      <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-slate-200">
+                        {myAppointments.length}
+                      </span>
+                    </div>
+
+                    <ul className="mt-3 space-y-2.5">
+                      {myAppointments.map((a) => (
+                        <li
+                          key={a.id}
+                          className="rounded-xl border border-white/10 bg-white/5 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="text-sm font-medium text-slate-100">
+                              {formatApptLabel(a.start, a.end)}
+                            </div>
+                            <span
+                              className={[
+                                "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                                a.status === "CONFIRMED"
+                                  ? "bg-emerald-400/15 text-emerald-300"
+                                  : "bg-amber-400/15 text-amber-300",
+                              ].join(" ")}
+                            >
+                              {a.status === "CONFIRMED"
+                                ? "Confirmed"
+                                : "Pending"}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => cancelAppointment(a.id)}
+                            disabled={cancelingId === a.id}
+                            className="mt-2 text-xs font-medium text-slate-400 transition hover:text-rose-300 disabled:opacity-50"
+                          >
+                            {cancelingId === a.id
+                              ? "Canceling..."
+                              : "Cancel visit"}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {/* Live availability + selection (only when a date is chosen) */}
                 {date && !showConfirmation && (
                   <div className="lp-animate-fade-up lp-delay-1 rounded-2xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur-xl">
@@ -747,9 +862,16 @@ export default function HomePage() {
                     </div>
 
                     <div className="mt-5 border-t border-white/10 pt-4">
-                      <h4 className="text-sm font-semibold text-white">
-                        Your selection
-                      </h4>
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-sm font-semibold text-white">
+                          Your selection
+                        </h4>
+                        {selectedCount > 0 && (
+                          <span className="rounded-full bg-sky-400/15 px-2.5 py-0.5 text-xs font-semibold text-sky-300">
+                            {totalDurationLabel}
+                          </span>
+                        )}
+                      </div>
                       {selectedSlots.length === 0 ? (
                         <p className="mt-2 text-sm text-slate-400">
                           Tap open slots to add them to your visit.
@@ -785,8 +907,9 @@ export default function HomePage() {
                   </h3>
                   <ul className="mt-3 space-y-3 text-sm text-slate-300">
                     {[
+                      "Each slot lasts 30 minutes",
                       "A private, one-on-one showroom session",
-                      "30 minutes per slot — book back-to-back for more time",
+                      "Booking multiple slots reserves a longer visit",
                       "We'll review and confirm your request shortly",
                     ].map((item) => (
                       <li key={item} className="flex items-start gap-2.5">
@@ -829,9 +952,7 @@ export default function HomePage() {
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <dt className="text-slate-400">Time zone</dt>
-                      <dd className="font-medium text-slate-200">
-                        Pacific (LA)
-                      </dd>
+                      <dd className="font-medium text-slate-200">Pacific</dd>
                     </div>
                   </dl>
                 </div>
@@ -941,6 +1062,61 @@ export default function HomePage() {
               </div>
             </div>
           )}
+
+          {/* Footer */}
+          <footer className="relative z-10 border-t border-white/10">
+            <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-slate-400 sm:flex-row">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-sky-400">
+                  <svg
+                    className="h-4 w-4 text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0V11.25A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"
+                    />
+                  </svg>
+                </span>
+                <span className="font-medium text-slate-300">
+                  Showroom Scheduler
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <p>
+                  Made by{" "}
+                  <span className="font-medium text-slate-300">
+                    Luke Zhuang
+                  </span>
+                </p>
+                <a
+                  href="https://github.com/Luke7787/showroom-appointment-scheduler"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 font-medium text-slate-300 transition hover:border-white/20 hover:bg-white/10 hover:text-white"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z"
+                    />
+                  </svg>
+                  GitHub
+                </a>
+              </div>
+            </div>
+          </footer>
         </div>
       </SignedIn>
     </main>
