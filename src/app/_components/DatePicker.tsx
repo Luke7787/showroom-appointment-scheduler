@@ -151,13 +151,13 @@ export default function DatePicker({ value, min, onChange }: Props) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={[
-          "flex w-full items-center justify-between gap-3 rounded-xl border bg-white/5 px-5 py-3 text-left text-lg text-white shadow-sm outline-none transition",
+          "flex w-full items-center justify-between gap-3 rounded-xl border bg-white/5 px-4 py-3 text-left text-sm text-white shadow-sm outline-none transition sm:px-5 sm:text-lg",
           open
             ? "border-sky-400/60 ring-2 ring-sky-400/30"
             : "border-white/15 hover:bg-white/10",
         ].join(" ")}
       >
-        <span className={value ? "text-white" : "text-slate-500"}>
+        <span className={value ? "min-w-0 text-white" : "text-slate-500"}>
           {displayLabel}
         </span>
         <svg

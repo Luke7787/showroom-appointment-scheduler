@@ -449,19 +449,22 @@ export default function LandingPage() {
           </h2>
         </Reveal>
 
-        <div className="mt-14 grid gap-8 md:grid-cols-3">
+        <div className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8">
           {STEPS.map((step, i) => (
             <Reveal key={step.number} delay={i * 120} className="relative">
-              {i < STEPS.length - 1 && (
-                <div className="absolute left-[3.25rem] top-8 hidden h-px w-full bg-gradient-to-r from-white/20 to-transparent md:block" />
-              )}
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-400 text-xl font-bold text-white shadow-lg shadow-indigo-500/30">
-                {step.number}
+              <div className="flex items-start gap-4 md:block">
+                <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-400 text-xl font-bold text-white shadow-lg shadow-indigo-500/30">
+                  {step.number}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-xl font-semibold text-white md:mt-5">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-400 sm:text-base">
+                    {step.description}
+                  </p>
+                </div>
               </div>
-              <h3 className="mt-6 text-xl font-semibold text-white">
-                {step.title}
-              </h3>
-              <p className="mt-2 text-slate-400">{step.description}</p>
             </Reveal>
           ))}
         </div>

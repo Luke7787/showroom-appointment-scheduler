@@ -399,7 +399,7 @@ export default function HomePage() {
       </SignedOut>
 
       <SignedIn>
-        <div className="relative min-h-screen overflow-hidden">
+        <div className="relative min-h-screen overflow-x-hidden">
           {/* Background gradient + animated blobs (matches landing) */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950" />
@@ -416,9 +416,9 @@ export default function HomePage() {
           </div>
 
           <nav className="relative z-20 border-b border-white/10 backdrop-blur-md">
-            <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-sky-400 shadow-lg shadow-indigo-500/30">
+            <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-sky-400 shadow-lg shadow-indigo-500/30">
                   <svg
                     className="h-5 w-5 text-white"
                     viewBox="0 0 24 24"
@@ -433,18 +433,18 @@ export default function HomePage() {
                     />
                   </svg>
                 </span>
-                <span className="text-base font-semibold tracking-tight text-white">
+                <span className="truncate text-sm font-semibold tracking-tight text-white sm:text-base">
                   Showroom Scheduler
                 </span>
               </div>
 
-              <div className="flex h-10 w-10 items-center justify-center scale-[1.4]">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center scale-110 sm:h-10 sm:w-10 sm:scale-[1.4]">
                 <UserButton afterSignOutUrl="/" />
               </div>
             </div>
           </nav>
 
-          <div className="relative z-10 mx-auto max-w-6xl px-6 py-12">
+          <div className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
             <div className="lp-animate-fade-up">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-medium text-slate-200 backdrop-blur">
                 <span className="relative flex h-2 w-2">
@@ -453,7 +453,7 @@ export default function HomePage() {
                 </span>
                 Booking slots open now
               </span>
-              <h1 className="mt-5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              <h1 className="mt-5 text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl">
                 Book your{" "}
                 <span className="bg-gradient-to-r from-indigo-300 via-sky-300 to-fuchsia-300 bg-clip-text text-transparent">
                   showroom visit
@@ -465,17 +465,17 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className="mt-8 grid gap-6 lg:grid-cols-3 lg:items-start">
+            <div className="mt-8 flex flex-col gap-6 lg:grid lg:grid-cols-3 lg:items-start">
               {/* ---------------- Main column ---------------- */}
-              <div className="space-y-6 lg:col-span-2">
+              <div className="contents lg:col-span-2 lg:block lg:space-y-6">
                 {/* Date selection card */}
-                <div className="lp-animate-fade-up lp-delay-1 relative z-40 rounded-2xl border border-white/10 bg-white/[0.05] p-6 backdrop-blur-xl">
-                  <div className="flex items-center justify-between gap-3">
+                <div className="lp-animate-fade-up lp-delay-1 relative z-40 order-1 rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-xl sm:p-6">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                     <label className="text-sm font-semibold text-slate-200">
                       Pick a date
                     </label>
                     {date && (
-                      <span className="text-sm font-medium text-sky-300">
+                      <span className="text-sm font-medium text-sky-300 sm:text-right">
                         {selectedDateLabel}
                       </span>
                     )}
@@ -532,7 +532,7 @@ export default function HomePage() {
 
                 {/* Confirmation */}
                 {date && showConfirmation && (
-                  <div className="lp-animate-fade-up overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05] p-6 shadow-2xl backdrop-blur-xl">
+                  <div className="lp-animate-fade-up order-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4 shadow-2xl backdrop-blur-xl sm:p-6 lg:order-none">
                     <div className="flex items-center gap-3">
                       <span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-400/30">
                         <svg
@@ -648,23 +648,23 @@ export default function HomePage() {
 
                 {/* Time slots */}
                 {date && !showConfirmation && (
-                  <div className="lp-animate-fade-up lp-delay-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05] shadow-2xl backdrop-blur-xl">
-                    <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-white/5 px-5 py-4">
+                  <div className="lp-animate-fade-up lp-delay-2 order-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05] shadow-2xl backdrop-blur-xl lg:order-none">
+                    <div className="flex flex-col gap-2 border-b border-white/10 bg-white/5 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-5">
                       <h3 className="font-semibold text-white">
                         Time slots{" "}
                         <span className="font-medium text-slate-400">
-                          (30 minutes each)
+                          (30 min each)
                         </span>
                       </h3>
 
                       {selectedCount > 0 && (
-                        <span className="rounded-full bg-indigo-500/20 px-3 py-1 text-sm font-semibold text-sky-300 ring-1 ring-inset ring-indigo-400/30">
+                        <span className="w-fit rounded-full bg-indigo-500/20 px-3 py-1 text-sm font-semibold text-sky-300 ring-1 ring-inset ring-indigo-400/30">
                           {selectedCount} selected
                         </span>
                       )}
                     </div>
 
-                    <div className="p-5">
+                    <div className="p-4 sm:p-5">
                       {isLoadingSlots ? (
                         <div className="flex items-center gap-2 py-6 text-sm text-slate-300">
                           <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-sky-400" />
@@ -676,7 +676,7 @@ export default function HomePage() {
                             const isSelected = selectedStarts.has(s.start);
 
                             const base =
-                              "w-full rounded-xl border px-3 py-2.5 text-sm text-left transition";
+                              "w-full rounded-xl border px-2.5 py-2.5 text-xs text-left transition sm:px-3 sm:text-sm";
 
                             const cls =
                               s.status === "PAST"
@@ -700,8 +700,8 @@ export default function HomePage() {
                                   onClick={() => toggleSlot(s)}
                                   className={[base, cls].join(" ")}
                                 >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="font-medium">
+                                  <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                                    <span className="font-medium leading-tight">
                                       {s.label}
                                     </span>
 
@@ -785,10 +785,10 @@ export default function HomePage() {
               </div>
 
               {/* ---------------- Sidebar ---------------- */}
-              <aside className="space-y-6 lg:sticky lg:top-6">
+              <aside className="contents lg:block lg:sticky lg:top-6 lg:space-y-6">
                 {/* My upcoming appointments */}
                 {myAppointments.length > 0 && (
-                  <div className="lp-animate-fade-up overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-500/10 to-sky-500/10 p-5 backdrop-blur-xl">
+                  <div className="lp-animate-fade-up order-2 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-500/10 to-sky-500/10 p-4 backdrop-blur-xl sm:p-5 lg:order-none">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold text-white">
                         Your upcoming visits
@@ -840,7 +840,7 @@ export default function HomePage() {
 
                 {/* Live availability + selection (only when a date is chosen) */}
                 {date && !showConfirmation && (
-                  <div className="lp-animate-fade-up lp-delay-1 rounded-2xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur-xl">
+                  <div className="lp-animate-fade-up lp-delay-1 order-3 rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-xl sm:p-5 lg:order-none">
                     <h3 className="text-sm font-semibold text-white">
                       Availability
                     </h3>
@@ -901,7 +901,7 @@ export default function HomePage() {
                 )}
 
                 {/* What to expect */}
-                <div className="lp-animate-fade-up lp-delay-2 rounded-2xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur-xl">
+                <div className="lp-animate-fade-up lp-delay-2 order-6 rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-xl sm:p-5 lg:order-none">
                   <h3 className="text-sm font-semibold text-white">
                     What to expect
                   </h3>
@@ -935,7 +935,7 @@ export default function HomePage() {
                 </div>
 
                 {/* Showroom hours */}
-                <div className="lp-animate-fade-up lp-delay-3 rounded-2xl border border-white/10 bg-white/[0.05] p-5 backdrop-blur-xl">
+                <div className="lp-animate-fade-up lp-delay-3 order-7 rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-xl sm:p-5 lg:order-none">
                   <h3 className="text-sm font-semibold text-white">
                     Showroom hours
                   </h3>
@@ -1065,7 +1065,7 @@ export default function HomePage() {
 
           {/* Footer */}
           <footer className="relative z-10 border-t border-white/10">
-            <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-slate-400 sm:flex-row">
+            <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-6 text-sm text-slate-400 sm:flex-row sm:px-6 sm:py-8">
               <div className="flex items-center gap-2.5">
                 <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-sky-400">
                   <svg
