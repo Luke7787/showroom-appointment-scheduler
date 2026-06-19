@@ -1,9 +1,10 @@
 "use client";
 
-import { SignedIn, SignedOut, UserButton, SignInButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import LandingPage from "./_components/LandingPage";
 
 const TIME_ZONE = "America/Los_Angeles";
 
@@ -241,17 +242,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-sky-100 text-slate-800">
       <SignedOut>
-        <nav className="flex items-center justify-between px-6 py-4 border-b bg-white/80 backdrop-blur-sm">
-          <h1 className="text-xl font-semibold tracking-tight">
-            Showroom Appointment Scheduler
-          </h1>
-
-          <SignInButton mode="modal">
-            <button className="px-4 py-2 rounded-md bg-slate-900 text-white">
-              Sign In
-            </button>
-          </SignInButton>
-        </nav>
+        <LandingPage />
       </SignedOut>
 
       <SignedIn>

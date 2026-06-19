@@ -24,3 +24,92 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ---------- Landing page animations ---------- */
+@keyframes lp-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes lp-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes lp-blob {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(30px, -30px) scale(1.08);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.95);
+  }
+}
+
+@keyframes lp-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.lp-animate-fade-up {
+  opacity: 0;
+  animation: lp-fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.lp-delay-1 {
+  animation-delay: 0.1s;
+}
+.lp-delay-2 {
+  animation-delay: 0.25s;
+}
+.lp-delay-3 {
+  animation-delay: 0.4s;
+}
+.lp-delay-4 {
+  animation-delay: 0.55s;
+}
+
+.lp-animate-float {
+  animation: lp-float 6s ease-in-out infinite;
+}
+
+.lp-animate-blob {
+  animation: lp-blob 16s ease-in-out infinite;
+}
+
+.lp-text-shimmer {
+  background-size: 200% auto;
+  animation: lp-shimmer 4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-animate-fade-up,
+  .lp-animate-float,
+  .lp-animate-blob,
+  .lp-text-shimmer {
+    animation: none;
+    opacity: 1;
+  }
+}
