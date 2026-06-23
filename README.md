@@ -1,5 +1,3 @@
-# Luke Zhuang's [Appointment Scheduler](https://showroom-appointment-scheduler.onrender.com)
-
 **Live Site:** https://showroom-appointment-scheduler.onrender.com
 
 Full-stack appointment scheduling application with role-based admin dashboard access.
