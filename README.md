@@ -18,6 +18,7 @@ Full-stack appointment scheduling application with role-based admin dashboard ac
 - Tailwind CSS
 - Prisma ORM
 - PostgreSQL
+- React
 - Render
 - React Hot Toast
 
